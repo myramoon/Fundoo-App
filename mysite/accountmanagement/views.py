@@ -1,7 +1,4 @@
 from django.shortcuts import render
-
-# Create your views here.
-
 from django.contrib.sites.shortcuts import get_current_site
 from rest_framework.viewsets import ModelViewSet
 from rest_framework import generics, status, views, permissions
@@ -28,12 +25,8 @@ class CustomRedirect(HttpResponsePermanentRedirect):
     allowed_schemes = [os.environ.get('APP_SCHEME'), 'http', 'https']
 
 
-class UserDetailsCrud(ModelViewSet):
-    queryset = Account.objects.all()
-    serializer_class = UserDetailsSerializer
-
-
-class LoginAPIView(generics.GenericAPIView):
+class Login(generics.GenericAPIView):
+    #allows user login after verification and activation
     serializer_class = LoginSerializer
 
     def post(self, request):
@@ -42,10 +35,8 @@ class LoginAPIView(generics.GenericAPIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-
-
-class RegisterView(generics.GenericAPIView):
-
+class Registration(generics.GenericAPIView):
+    #creates new user and sends verification email for activation
     serializer_class = RegisterSerializer
 
     def post(self, request):
@@ -69,6 +60,7 @@ class RegisterView(generics.GenericAPIView):
 
 
 class VerifyEmail(views.APIView):
+    #verifies email for activation of new user
     serializer_class = EmailVerificationSerializer
 
     token_param_config = openapi.Parameter(
@@ -95,6 +87,7 @@ class VerifyEmail(views.APIView):
 
 
 class RequestPasswordResetEmail(generics.GenericAPIView):
+    #sends an email to facilitate password reset
     serializer_class = ResetPasswordEmailRequestSerializer
 
     def post(self, request):
@@ -119,7 +112,8 @@ class RequestPasswordResetEmail(generics.GenericAPIView):
         return Response({'success': 'We have sent you a link to reset your password'}, status=status.HTTP_200_OK)
 
 
-class PasswordTokenCheckAPI(generics.GenericAPIView):
+class CheckPasswordToken(generics.GenericAPIView):
+    #checks token supplied for setting new password
     serializer_class = SetNewPasswordSerializer
 
     def get(self, request, uidb64, token):
@@ -152,7 +146,8 @@ class PasswordTokenCheckAPI(generics.GenericAPIView):
                                 status=status.HTTP_400_BAD_REQUEST)
 
 
-class SetNewPasswordAPIView(generics.GenericAPIView):
+class SetNewPassword(generics.GenericAPIView):
+    #returns new password when supplied with uid,token and new password
     serializer_class = SetNewPasswordSerializer
 
     def patch(self, request):

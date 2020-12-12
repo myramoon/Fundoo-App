@@ -18,6 +18,7 @@ class UserDetailsSerializer(ModelSerializer):
 
 
 class RegisterSerializer(ModelSerializer):
+    #serializer validates new user credentials and creates new user 
     password = serializers.CharField(
         max_length=68, min_length=6, write_only=True)
 
@@ -42,6 +43,7 @@ class RegisterSerializer(ModelSerializer):
 
 
 class EmailVerificationSerializer(serializers.ModelSerializer):
+    #verifies email using token
     token = serializers.CharField(max_length=555)
 
     class Meta:
@@ -49,11 +51,8 @@ class EmailVerificationSerializer(serializers.ModelSerializer):
         fields = ['token']
 
 
-
-
-
-
 class LoginSerializer(ModelSerializer):
+    #validates user credentials and allows login if authenticated
     email = serializers.EmailField(max_length=255, min_length=3)
     password = serializers.CharField(
         max_length=68, min_length=6, write_only=True)
@@ -78,8 +77,8 @@ class LoginSerializer(ModelSerializer):
         }
 
 class ResetPasswordEmailRequestSerializer(serializers.Serializer):
+    #serializes email and redirect_url when password reset request is made
     email = serializers.EmailField(min_length=2)
-
     redirect_url = serializers.CharField(max_length=500, required=False)
 
     class Meta:
@@ -87,6 +86,7 @@ class ResetPasswordEmailRequestSerializer(serializers.Serializer):
 
 
 class SetNewPasswordSerializer(serializers.Serializer):
+    #serializes and validates uid,token,new password before new password is set for user
     password = serializers.CharField(
         min_length=6, max_length=68, write_only=True)
     token = serializers.CharField(
@@ -110,7 +110,6 @@ class SetNewPasswordSerializer(serializers.Serializer):
 
             user.set_password(password)
             user.save()
-
             return user
         except Exception as e:
             raise AuthenticationFailed('The reset link is invalid', 401)
