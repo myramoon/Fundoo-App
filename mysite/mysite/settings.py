@@ -43,7 +43,7 @@ INSTALLED_APPS = [
     'accountmanagement',
     'drf_yasg',
     'notes',
-    #'labels',
+    'labels',
     'colorfield',
 ]
 

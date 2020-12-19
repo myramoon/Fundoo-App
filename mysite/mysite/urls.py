@@ -20,6 +20,7 @@ from accountmanagement import views
 
 
 urlpatterns = [
+    path('',include('labels.urls')),
     path('',include('notes.urls')),
     path('admin/', admin.site.urls),
     path('api-auth/', include('rest_framework.urls')),  

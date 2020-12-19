@@ -12,7 +12,7 @@ import json
 class UserDetailsSerializer(ModelSerializer):
     class Meta:
         model = Account
-        fields = '__all__'
+        fields = ['first_name','last_name','user_name','email']
 
 
 class RegisterSerializer(ModelSerializer):
