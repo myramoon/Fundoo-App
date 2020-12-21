@@ -39,7 +39,7 @@ class ManageNote(APIView):
         Returns:
             [Response]: [result data and status]
         """ 
-        notes = Note.objects.all()
+        notes = Note.objects.filter(is_deleted=False) 
         serializer = NoteSerializer(notes, many=True)
         result = {'RETRIEVED' : {'status' : "True",
                     'message':'retrieved successfully',
@@ -64,17 +64,20 @@ class ManageNote(APIView):
             serializer = NoteSerializer(data=request.data)
             if serializer.is_valid(raise_exception=True):               # Return a 400 response if the data was invalid.
                 serializer.save()
-                result = {'status' : "True",
+                result = {'status' : True,
                         'message':'created successfully',
                         'data':serializer.data}
                 #logging.debug('validated new note details: {}'.format(serializer.data))
                 return Response(result,status.HTTP_201_CREATED)
             else:
-                result = {'FAILED' : {'status' : 'False',
-                            'data':serializer.errors}}
+                result = {'status' : 'False',
+                        'message':serializer.errors}
                 return Response(result,status.HTTP_400_BAD_REQUEST)
         except Note.DoesNotExist as e:
             return Response('note does not exist',status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response(str(e),status.HTTP_400_BAD_REQUEST)
+
 
     
 
@@ -92,21 +95,27 @@ class ManageSpecificNote(APIView):
             pk ([int]): [id]
         """
         try:
-            return Note.objects.get(id=pk)
+            return Note.objects.get(id = pk, is_deleted = False) 
         except Note.DoesNotExist:
             return Response('note does not exist',status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response(str(e),status.HTTP_400_BAD_REQUEST)
 
     def get(self,request,pk):
         """[displays specific note]
         Returns:
             [Response]: [note details]
         """
-        note = self.get_object(pk)
-        serializer = NoteSerializer(note, many=False)
-        result = {'status' : "True",
-                    'data':serializer.data}    
-        #logging.debug('validated note detail: {}'.format(serializer.data))
-        return Response(result , status.HTTP_200_OK)
+        try:
+            note = self.get_object(pk)
+            serializer = NoteSerializer(note)
+            result = {'status' : "True",
+                        'data':serializer.data}    
+            #logging.debug('validated note detail: {}'.format(serializer.data))
+            return Response(result , status.HTTP_200_OK)
+        except Exception as e:
+            return Response(str(e),status.HTTP_400_BAD_REQUEST)
+
 
     def put(self, request, pk):
         """[updates existing note]
@@ -115,6 +124,12 @@ class ManageSpecificNote(APIView):
         """
         try:
             note = self.get_object(pk)
+            if request.data.get('user'):
+                utils.get_user(request)
+            if request.data.get('collaborators'):
+                utils.get_collaborator_list(request)
+            if request.data.get('labels'):
+                utils.get_label_list(request)
             serializer = NoteSerializer(note, data=request.data , partial=True)
             if serializer.is_valid(raise_exception=True):
                 serializer.save()
@@ -133,16 +148,16 @@ class ManageSpecificNote(APIView):
             return Response(str(e),status.HTTP_400_BAD_REQUEST)
 
     def delete(self,request,pk):
-        """[deletes existing note]
+        """[soft deletes existing note]
         Returns:
             [Response]: [confirmation message and status]
         """
         try:
             note = self.get_object(pk)
-            note.delete()
+            note.soft_delete()
             #logging.debug('deleted note with id: {}'.format(pk))
-            result = {'DELETED' : {'status' : "True",
-                        'message':'deleted successfully'}}
+            result = {'status' : "True",
+                        'message':'deleted successfully'}
             return Response(result,status.HTTP_204_NO_CONTENT)
         except Note.DoesNotExist:
             return Response('note does not exist',status.HTTP_404_NOT_FOUND)
@@ -150,22 +165,4 @@ class ManageSpecificNote(APIView):
             return Response(str(e),status.HTTP_400_BAD_REQUEST)
 
 
-
-# def add_collaborator(self,request):
-#     """
-#     :param :here we pass number of labels
-#     :return:this function is perform label validation
-#     """
-
-    # request.POST._mutable = True
-    # collaborators_list = []
-    # collaborators_list_as_str = request.data.get('collaborators')
-    # for each in collaborators_list_as_str.split(","):
-    #     mail_id = each.strip()
-    #     collaborators_list.append(mail_id)
-
-    # collaborators_id_list = list(map(lambda x : Account.objects.get(email=x).id,collaborators_list))
-    # print(collaborators_id_list)
-    # request.data["collaborators"] = collaborators_id_list
-    # request.POST._mutable = False
 

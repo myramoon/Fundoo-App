@@ -28,7 +28,7 @@ def get_user(request):
 def get_collaborator_list(request):
     """[maps collaborator emails to their user ids and modifies request.data]
 
-    Args:
+    Args:  
         request ([QueryDict]): [post data]
     """
     request.POST._mutable = True
@@ -48,7 +48,7 @@ def get_label_list(request):
 
     Args:
         request ([QueryDict]): [post data]
-    """
+    """ 
     request.POST._mutable = True
     label_list=[]                                           #holds ids associated to label names
     for label_name in request.data.get('labels'):

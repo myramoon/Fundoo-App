@@ -25,7 +25,7 @@ class ManageLabel(APIView):
         Returns:
             [Response]: [result data and status]
         """
-        labels = Label.objects.all()
+        labels = Label.objects.filter(is_deleted=False) 
         serializer = LabelSerializer(labels, many=True)
         result = {'RETRIEVED' : {'status' : "True",
                     'message':'retrieved successfully',
@@ -71,7 +71,7 @@ class ManageSpecificLabel(APIView):
             pk ([int]): [id]
         """
         try:
-            return Label.objects.get(id=pk)
+            return Label.objects.get(id = pk, is_deleted = False) 
         except Label.DoesNotExist:
             return Response('label does not exist',status.HTTP_404_NOT_FOUND)
 
@@ -81,7 +81,7 @@ class ManageSpecificLabel(APIView):
             [Response]: [label details]
         """
         label = self.get_object(pk)
-        serializer = NoteSerializer(label, many=False)
+        serializer = LabelSerializer(label, many=False)
         result = {'status' : "True",
                     'data':serializer.data}    
         #logging.debug('validated note detail: {}'.format(serializer.data))
@@ -119,6 +119,7 @@ class ManageSpecificLabel(APIView):
         try:
             label = self.get_object(pk)
             label.delete()
+            label.soft_delete()
             #logging.debug('deleted label with id: {}'.format(pk))
             result = {'DELETED' : {'status' : "True",
                         'message':'deleted successfully'}}

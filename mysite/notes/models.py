@@ -24,3 +24,10 @@ class Note(models.Model):
     def __str__(self):
         return self.title
 
+    def soft_delete(self):
+        self.is_deleted = True
+        self.save()  
+
+    
+    
+
