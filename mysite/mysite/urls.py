@@ -1,7 +1,5 @@
 """mysite URL Configuration
-
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/3.1/topics/http/urls/
+The `urlpatterns` list routes URLs to views.
 Examples:
 Function views
     1. Add an import:  from my_app import views
@@ -17,26 +15,24 @@ from __future__ import absolute_import
 from django.contrib import admin
 from django.urls import path, include
 from rest_framework import routers
-from accountmanagement import views
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from accountmanagement import views
 
-router = routers.DefaultRouter()
-router.register('users', views.UserDetailsCrud)
 
 urlpatterns = [
+    path('',include('labels.urls')),
+    path('',include('notes.urls')),
     path('admin/', admin.site.urls),
-    path('', include(router.urls)),
     path('api-auth/', include('rest_framework.urls')),  
-    path('login/', views.LoginAPIView.as_view()),
-    path('register/', views.RegisterView.as_view()),
-
-    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('login/', views.Login.as_view(),name='login'),
+    path('register/', views.Registration.as_view(), name ="register"),
+    path('email-verify/', views.VerifyEmail.as_view(), name="email-verify"),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('request-reset-email/', views.RequestPasswordResetEmail.as_view(),
          name="request-reset-email"),
     path('password-reset/<uidb64>/<token>/',
-         views.PasswordTokenCheckAPI.as_view(), name='password-reset-confirm'),
-    path('password-reset-complete/', views.SetNewPasswordAPIView.as_view(),
+         views.CheckPasswordToken.as_view(), name='password-reset-confirm'),
+    path('password-reset-complete/', views.SetNewPassword.as_view(),
          name='password-reset-complete')
 
 ]

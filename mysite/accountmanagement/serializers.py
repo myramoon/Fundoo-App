@@ -1,24 +1,32 @@
-from .models import Account
-from rest_framework.serializers import ModelSerializer
-from rest_framework import serializers
 from django.contrib import auth
-from rest_framework.exceptions import AuthenticationFailed
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils.encoding import smart_str, force_str, smart_bytes, DjangoUnicodeDecodeError
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
+from rest_framework.exceptions import AuthenticationFailed
+from rest_framework.serializers import ModelSerializer
+from rest_framework import serializers
+from .models import Account
 import json
 
 
 class UserDetailsSerializer(ModelSerializer):
     class Meta:
         model = Account
-        fields = '__all__'
-
-
+        fields = ['first_name','last_name','user_name','email']
 
 
 class RegisterSerializer(ModelSerializer):
-    #serializer validates new user credentials and creates new user 
+    """[serializer validates new user credentials and creates new user ]
+
+    Args:
+        ModelSerializer ([type]): [description]
+
+    Raises:
+        serializers.ValidationError: [description]
+
+    Returns:
+        [type]: [description]
+    """
     password = serializers.CharField(
         max_length=68, min_length=6, write_only=True)
 
@@ -30,13 +38,15 @@ class RegisterSerializer(ModelSerializer):
         fields = ['first_name', 'last_name', 'email', 'user_name', 'password']
 
     def validate(self, attrs):
-        email = attrs.get('email', '')
-        user_name = attrs.get('user_name', '')
+        try:
+            user_name = attrs.get('user_name', '')
 
-        if not user_name.isalnum():
-            raise serializers.ValidationError(
-                self.default_error_messages)
-        return attrs
+            if not user_name.isalnum():
+                raise serializers.ValidationError(
+                    self.default_error_messages)
+            return attrs
+        except Exception:
+            raise AuthenticationFailed('something went wrong', 401)
 
     def create(self, validated_data):
         return Account.objects.create_user(**validated_data)
@@ -52,7 +62,18 @@ class EmailVerificationSerializer(serializers.ModelSerializer):
 
 
 class LoginSerializer(ModelSerializer):
-    #validates user credentials and allows login if authenticated
+    """[validates user credentials and allows login if authenticated]
+
+    Args:
+        ModelSerializer ([type]): [description]
+
+    Raises:
+        AuthenticationFailed: [description]
+        AuthenticationFailed: [description]
+
+    Returns:
+        [type]: [description]
+    """
     email = serializers.EmailField(max_length=255, min_length=3)
     password = serializers.CharField(
         max_length=68, min_length=6, write_only=True)
@@ -73,11 +94,16 @@ class LoginSerializer(ModelSerializer):
             raise AuthenticationFailed('Account disabled, contact admin')
 
         return {
-            'user_name': user.user_name, 'email': user.email,
+            'user_name': user.user_name, 
+            'email': user.email,
         }
 
 class ResetPasswordEmailRequestSerializer(serializers.Serializer):
-    #serializes email and redirect_url when password reset request is made
+    """[serializes email and redirect_url when password reset request is made]
+
+    Args:
+        serializers ([type]): [description]
+    """
     email = serializers.EmailField(min_length=2)
     redirect_url = serializers.CharField(max_length=500, required=False)
 
@@ -86,7 +112,18 @@ class ResetPasswordEmailRequestSerializer(serializers.Serializer):
 
 
 class SetNewPasswordSerializer(serializers.Serializer):
-    #serializes and validates uid,token,new password before new password is set for user
+    """[serializes and validates uid,token,new password before new password is set for user]
+
+    Args:
+        serializers ([type]): [description]
+
+    Raises:
+        AuthenticationFailed: [description]
+        AuthenticationFailed: [description]
+
+    Returns:
+        [type]: [description]
+    """
     password = serializers.CharField(
         min_length=6, max_length=68, write_only=True)
     token = serializers.CharField(
