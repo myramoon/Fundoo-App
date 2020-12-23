@@ -63,7 +63,16 @@ def get_label_list(request):
     
     
 
-
+def manage_response(**kwargs):
+    result = {}
+    if kwargs['data']:
+        result['status']=kwargs['status']
+        result['message']=kwargs['message']
+        result['data']=kwargs['data']
+    else:
+        result['status']=kwargs['status']
+        result['message']=kwargs['message']
+    return result
 
 
 

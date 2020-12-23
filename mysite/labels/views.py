@@ -6,16 +6,26 @@ Created on: Dec 17, 2020
 
 import logging
 from django.shortcuts import render
+from django.utils.decorators import method_decorator
+from accountmanagement.decorators import user_login_required
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
+from notes import utils
 from .serializers import LabelSerializer
 from .models import Label
 
-result = {'status' : "True",
-         'message':'updated successfully',
-         'data': 'operation successful'}
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
+formatter = logging.Formatter('%(levelname)s | %(message)s')
+
+file_handler = logging.FileHandler('log_labels.log')
+file_handler.setFormatter(formatter)
+
+logger.addHandler(file_handler)
+
+@method_decorator(user_login_required, name='dispatch')
 class ManageLabel(APIView):
     """[allows viewing labels for get and creates new label for post]
 
@@ -32,44 +42,43 @@ class ManageLabel(APIView):
             """
             labels = Label.objects.filter(is_deleted=False) 
             serializer = LabelSerializer(labels, many=True)
-            result['message']='retrieved successfully'
-            result['data']=serializer.data
-            #logging.debug('validated label list: {}'.format(serializer.data))
+            result = utils.manage_response(status=True,message='retrieved successfully',data=serializer.data)
+            logger.debug('validated label list: {}'.format(serializer.data))
             return Response(result,status.HTTP_200_OK)
         except Exception as e:
-            result['status']= False
-            result['message'] = 'something wrong'
+            logger.exception('Something went wrong')
+            result = utils.manage_response(status=False,message='something wrong')
             return Response(result,status.HTTP_400_BAD_REQUEST)  
 
     def post(self, request):
         """[creates new label]
         Returns:
-            [Response]: [result data and status]
+            [Response]: [label data and status]
         """
+
         try:
             serializer = LabelSerializer(data=request.data)
             if serializer.is_valid():
                 serializer.save()
-                result['message']='created successfully'
-                result['data']=serializer.data
-                logging.debug('validated new label details: {}'.format(serializer.data))
+                result = utils.manage_response(status=True,message='label created successfully',data=serializer.data)
+                logger.debug('validated new label details: {}'.format(serializer.data))
                 return Response(result,status.HTTP_201_CREATED)
             else:
-                result['status'] = 'False'
-                result['message'] = serializer.errors
+                logger.error('Invalid label details entered')
+                result = utils.manage_response(status=False,message=serializer.errors)
                 return Response(result,status.HTTP_400_BAD_REQUEST)
         except Label.DoesNotExist as e:
-            result['status']= False
-            result['message'] = 'label not found'
+            logger.exception('Requested label does not exist')
+            result = utils.manage_response(status=False,message='label not found')
             return Response(result,status.HTTP_404_NOT_FOUND)
         except Exception as e:
-            result['status']= False
-            result['message'] = 'something wrong'
+            logger.exception('Something went wrong')
+            result = utils.manage_response(status=False,message='something wrong')
             return Response(result,status.HTTP_400_BAD_REQUEST)
 
 
     
-
+@method_decorator(user_login_required, name='dispatch')
 class ManageSpecificLabel(APIView):
     """[views,updates existing label or deletes specified label]
 
@@ -86,12 +95,12 @@ class ManageSpecificLabel(APIView):
         try:
             return Label.objects.get(id = pk, is_deleted = False) 
         except Label.DoesNotExist:
-            result['status']= False
-            result['message'] = 'label not found'
+            logger.exception('Requested label does not exist')
+            result = utils.manage_response(status=False,message='label not found')
             return Response(result,status.HTTP_404_NOT_FOUND)
         except Exception as e:
-            result['status']= False
-            result['message'] = 'something wrong'
+            logger.exception('Something went wrong')
+            result = utils.manage_response(status=False,message='something wrong')
             return Response(result,status.HTTP_400_BAD_REQUEST)
 
 
@@ -103,13 +112,12 @@ class ManageSpecificLabel(APIView):
         try:
             label = self.get_object(pk)
             serializer = LabelSerializer(label, many=False)
-            result['message']='retrieved successfully'
-            result['data']=serializer.data
-            logging.debug('validated label detail: {}'.format(serializer.data))
+            result = utils.manage_response(status=True,message='retrieved successfully',data=serializer.data)
+            logger.debug('validated label detail: {}'.format(serializer.data))
             return Response(result , status.HTTP_200_OK)
         except Exception as e:
-            result['status']= False
-            result['message'] = 'something wrong'
+            logger.exception('Something went wrong')
+            result = utils.manage_response(status=False,message='something wrong')
             return Response(result,status.HTTP_400_BAD_REQUEST)
 
     def put(self, request, pk):
@@ -117,26 +125,26 @@ class ManageSpecificLabel(APIView):
         Returns:
             [Response]: [updated details and status]
         """
+
         try:
-            label = self.get_object(pk)
+            label = self.get_object(pk)     #validate type of pk request.data
             serializer = LabelSerializer(label, data=request.data)
             if serializer.is_valid():
                 serializer.save()
-                #logging.debug('validated updated label data: {}'.format(serializer.data))
-                result['message']='updated successfully'
-                result['data']=serializer.data
+                logger.debug('validated updated label data: {}'.format(serializer.data))
+                result = utils.manage_response(status=True,message='updated successfully',data=serializer.data)
                 return Response(result, status.HTTP_200_OK)
             else:
-                result['status'] = 'False'
-                result['data'] = serializer.errors
+                logger.error('Invalid label details entered')
+                result = utils.manage_response(status=True,message=serializer.errors)
                 return Response(result,status.HTTP_400_BAD_REQUEST)
         except Label.DoesNotExist:
-            result['status']= False
-            result['message'] = 'label not found'
+            logger.exception('Requested label does not exist')
+            result = utils.manage_response(status=False,message='label not found')
             return Response(result,status.HTTP_404_NOT_FOUND)
         except Exception as e:
-            result['status']= False
-            result['message'] = 'something wrong'
+            logger.exception('Something went wrong')
+            result = utils.manage_response(status=False,message='something went wrong.Please try again.')
             return Response(result,status.HTTP_400_BAD_REQUEST)
                 
 
@@ -148,16 +156,16 @@ class ManageSpecificLabel(APIView):
         try:
             label = self.get_object(pk)
             label.soft_delete()
-            #logging.debug('deleted label with id: {}'.format(pk))
-            result['message']='deleted successfully'
+            logger.debug('deleted label with id: {}'.format(pk))
+            result = utils.manage_response(status=True,message='deleted successfully')
             return Response(result,status.HTTP_204_NO_CONTENT)
         except Label.DoesNotExist:
-            result['status']= False
-            result['message'] = 'label not found'
+            logger.exception('Requested label does not exist')
+            result = utils.manage_response(status=False,message='label not found')
             return Response(result,status.HTTP_404_NOT_FOUND)
         except Exception as e:
-            result['status']= False
-            result['message'] = 'something wrong'
+            logger.exception('Something went wrong')
+            result = utils.manage_response(status=False,message='something went wrong.Please try again.')
             return Response(result,status.HTTP_400_BAD_REQUEST)
             
 

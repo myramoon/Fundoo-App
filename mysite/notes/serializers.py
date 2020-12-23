@@ -5,10 +5,7 @@ from accountmanagement.models import Account
 from labels.serializers import LabelSerializer
 from accountmanagement.serializers import UserDetailsSerializer
 
-class NoteSerializer(serializers.ModelSerializer):   
-    #labels = LabelSerializer(required=False, many=True)
-    #user = UserDetailsSerializer()
-    #collaborators = UserDetailsSerializer(required=False,many=True)
+class NoteSerializer(serializers.ModelSerializer):  
     class Meta:
         model = Note
         fields = '__all__'

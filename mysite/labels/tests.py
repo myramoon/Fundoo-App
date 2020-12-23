@@ -12,13 +12,13 @@ class Data(APITestCase):
         self.label_update_url = reverse('manage-specific-label',args=[1])
 
         self.valid_label_data = {
-                                 'name': "Third Note",
+                                 "name": "label1"
                                  }
         self.valid_label_put_data = {
-                                     'name': "First Note",
+                                     'name': "label2"
                                      }
         self.invalid_label_data = {'user': 15,
-                                   'label': "Third Note",
+                                   'label': "label3"
                                    }
         self.valid_registration_data = {'first_name': "Anam",
                                         'last_name': "Fazal",
@@ -36,7 +36,7 @@ class LabelsTest(Data):
         response = self.client.get(self.label_create_url, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        response = self.client.post(self.label_create_url, self.valid_label_put_data, format='json')
+        response = self.client.post(self.label_create_url, self.valid_label_data, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
         response = self.client.put(self.label_update_url, self.valid_label_put_data, format='json')

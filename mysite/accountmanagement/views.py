@@ -23,7 +23,15 @@ from .models import Account
 from .serializers import RegisterSerializer, SetNewPasswordSerializer, ResetPasswordEmailRequestSerializer, EmailVerificationSerializer, LoginSerializer,UserDetailsSerializer
 from .utils import Util
 
-logging.basicConfig(filename='log_accountmanagement.log',level=logging.DEBUG, format='%(levelname)s | %(message)s')
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+formatter = logging.Formatter('%(levelname)s | %(message)s')
+
+file_handler = logging.FileHandler('log_accountmanagement.log')
+file_handler.setFormatter(formatter)
+
+logger.addHandler(file_handler)
 
 class CustomRedirect(HttpResponsePermanentRedirect):
     allowed_schemes = [os.environ.get('APP_SCHEME'), 'http', 'https']
@@ -40,7 +48,7 @@ class Login(generics.GenericAPIView):
     def post(self, request):
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
-        logging.debug('validated data: {}'.format(serializer.data))
+        logger.debug('validated data: {}'.format(serializer.data))
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
@@ -68,7 +76,7 @@ class Registration(generics.GenericAPIView):
                 'email_subject': 'Verify your email'}
 
         Util.send_email(data)
-        logging.debug('validated data: {}'.format(serializer.data))
+        logger.debug('validated data: {}'.format(serializer.data))
         return Response(user_data, status=status.HTTP_201_CREATED)
 
 
@@ -93,16 +101,16 @@ class VerifyEmail(views.APIView):
                 user.is_verified = True
                 user.is_active = True
                 user.save()
-            logging.debug('user activation successful')
+            logger.debug('user activation successful')
             return Response({'email': 'Successfully activated'}, status=status.HTTP_200_OK)
         except jwt.ExpiredSignatureError as identifier:
-            logging.exception('Exception due to expired signature')
+            logger.exception('Exception due to expired signature')
             return Response({'error': 'Activation Expired'}, status=status.HTTP_400_BAD_REQUEST)
         except jwt.exceptions.DecodeError as identifier:
-            logging.exception('Exception due to error in decoding')
+            logger.exception('Exception due to error in decoding')
             return Response({'error': 'Invalid token'}, status=status.HTTP_400_BAD_REQUEST)
         except:
-            logging.exception('Exception due to other reasons')
+            logger.exception('Exception due to other reasons')
             return Response({'error': 'Something went wrong'})
 
 
@@ -137,7 +145,7 @@ class RequestPasswordResetEmail(generics.GenericAPIView):
                     'to_email': user.email,
                     'email_subject': 'Reset your passsword'}
             Util.send_email(data)
-            logging.debug('password link sent successfully')
+            logger.debug('password link sent successfully')
         return Response({'success': 'We have sent you a link to reset your password'}, status=status.HTTP_200_OK)
 
 
@@ -164,7 +172,7 @@ class CheckPasswordToken(generics.GenericAPIView):
                     return CustomRedirect(os.environ.get('FRONTEND_URL', '') + '?token_valid=False')
 
             if redirect_url and len(redirect_url) > 3:
-                logging.debug('Token validated')
+                logger.debug('Token validated')
                 return CustomRedirect(
                     redirect_url + '?token_valid=True&message=Credentials Valid&uidb64=' + uidb64 + '&token=' + token)
             else:
@@ -173,15 +181,15 @@ class CheckPasswordToken(generics.GenericAPIView):
         except DjangoUnicodeDecodeError as identifier:
             try:
                 if not PasswordResetTokenGenerator().check_token(user):
-                    logging.exception('Exception due to invalid token')
+                    logger.exception('Exception due to invalid token')
                     return CustomRedirect(redirect_url + '?token_valid=False')
 
             except UnboundLocalError as e:
-                logging.exception('Exception due to variable being referenced before assignment')
+                logger.exception('Exception due to variable being referenced before assignment')
                 return Response({'error': 'Token is not valid, please request a new one'},
                                 status=status.HTTP_400_BAD_REQUEST)
             except:
-                logging.exception('Exception due to other reasons')
+                logger.exception('Exception due to other reasons')
                 return Response({'error': 'Something went wrong'})
 
 
@@ -196,5 +204,5 @@ class SetNewPassword(generics.GenericAPIView):
     def patch(self, request):
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
-        logging.debug('password reset successful')
+        logger.debug('password reset successful')
         return Response({'success': True, 'message': 'Password reset success'}, status=status.HTTP_200_OK)
