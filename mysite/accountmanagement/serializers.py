@@ -94,7 +94,7 @@ class LoginSerializer(ModelSerializer):
             raise AuthenticationFailed('Account disabled, contact admin')
 
         return {
-            'user_name': user.user_name, 
+            #'user_name': user.user_name, 
             'email': user.email,
         }
 

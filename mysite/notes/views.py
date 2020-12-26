@@ -73,7 +73,7 @@ class ManageNote(APIView):
         try:
             data = request.data
             if data.get('user'):
-                utils.get_user(request)
+               utils.get_user(request)
             if data.get('collaborators'):
                 utils.get_collaborator_list(request)
             if data.get('labels'):
@@ -149,7 +149,8 @@ class ManageSpecificNote(APIView):
         try:
             note = self.get_object(pk)
             data = request.data
-
+            if data.get('user'):
+               utils.get_user(request)
             if data.get('collaborators'):
                 utils.get_collaborator_list(request)
             if data.get('labels'):

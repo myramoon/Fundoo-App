@@ -1,30 +1,33 @@
-import json
-from django.shortcuts import redirect
-from django.contrib.auth.models import User
+import json,jwt
 from django.http import HttpResponse
 from rest_framework import status
+from .models import Account
 from rest_framework_jwt.settings import api_settings
 
 
 
 def user_login_required(view_func):
     def wrapper(request, *args, **kwargs):
+        try:
+            token = request.META['HTTP_AUTHORIZATION']
+            decoded_token = jwt.decode(token, "secret", algorithms=["HS256"])
+            id = decoded_token['id']
+            user = Account.objects.get(id=id)
 
-        if request.session:
-            user = request.user
-            if user.is_authenticated:
-                return view_func(request,*args,**kwargs)
-            else:
-                result = {'success': False, 'message': 'login is required'}
-                return HttpResponse(json.dumps(result), status=status.HTTP_400_BAD_REQUEST)
-        else:
-            result = {'success': False, 'message': 'Users credential not provided..!!'}
-            return HttpResponse(json.dumps(result), status=status.HTTP_400_BAD_REQUEST)
+            if user and user.is_active:
+                request.user = user
+                return view_func(request, *args, **kwargs)
+            
+            response = {'success': False, 'message': 'User must be logged in'}
+            return HttpResponse(json.dumps(response), status=status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            response = {'success': False, 'message': 'please provide a valid token'}
+            return HttpResponse(json.dumps(response))
 
     return wrapper
 
-
-
-
-
     
+
+
+
+
