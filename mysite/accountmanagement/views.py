@@ -20,8 +20,13 @@ from rest_framework.response import Response
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from .models import Account
+from notes import utils
 from .serializers import RegisterSerializer, SetNewPasswordSerializer, ResetPasswordEmailRequestSerializer, EmailVerificationSerializer, LoginSerializer,UserDetailsSerializer
 from .utils import Util
+from services.cache import Cache
+from decouple import config
+from rest_framework.exceptions import AuthenticationFailed
+from services.encrypt import Encrypt
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -36,7 +41,7 @@ logger.addHandler(file_handler)
 class CustomRedirect(HttpResponsePermanentRedirect):
     allowed_schemes = [os.environ.get('APP_SCHEME'), 'http', 'https']
 
-
+#use redis cache to set token.Unique key
 class Login(generics.GenericAPIView):
     """[allows user login after verification and activation]
 
@@ -44,15 +49,27 @@ class Login(generics.GenericAPIView):
         [Response]: [username , email and status code]
     """
     serializer_class = LoginSerializer
-
+    
     def post(self, request):
-        serializer = self.serializer_class(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = Account.objects.get(email=serializer.data['email'])
-        token = jwt.encode({"id": user.id}, "secret", algorithm="HS256").decode()
-        result = {'token': token}
-        logger.debug('validated data: {}'.format(serializer.data))
-        return Response(result, status=status.HTTP_200_OK)
+        try:
+            serializer = self.serializer_class(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            user = Account.objects.get(email=serializer.data['email'])
+            token = Encrypt.encode(user.id)
+            token = jwt.encode({"id": user.id}, "secret", algorithm="HS256").decode('utf-8')
+            Cache.set_cache("TOKEN_"+str(user.id)+"_AUTH", token)
+            result = {'token': token}
+            logger.debug('validated data: {}'.format(serializer.data))
+            return Response(result, status=status.HTTP_200_OK)
+        except Account.DoesNotExist:
+            result = utils.manage_response(status=False,message = 'Account does not exist' )
+            return Response(result, status=status.HTTP_400_BAD_REQUEST)
+        except AuthenticationFailed as e:
+            return utils.manage_response(status=False, message=str(e),
+                                         status_code=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            result = utils.manage_response(status=False,message = 'some other issue.Please try again' ,error=e)
+            return Response(result, status=status.HTTP_400_BAD_REQUEST)
 
 
 class Registration(generics.GenericAPIView):
