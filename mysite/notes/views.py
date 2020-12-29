@@ -5,6 +5,7 @@ Created on: Dec 15, 2020
 """
 
 import logging
+from django.views.decorators.cache import cache_page
 from django.shortcuts import render
 from django.utils.decorators import method_decorator
 from accountmanagement.decorators import user_login_required
@@ -37,6 +38,7 @@ class NotesOverview(APIView):
         }
         return Response(api_urls)
 
+#@cache_page(60 * 15)
 @method_decorator(user_login_required, name='dispatch')
 class ManageNote(APIView):
     """[allows viewing notes for get and creates new note for post]

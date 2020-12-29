@@ -48,15 +48,6 @@ INSTALLED_APPS = [
     'colorfield',
 ]
 
-SWAGGER_SETTINGS = {
-    'SECURITY_DEFINITIONS': {
-        'Bearer': {
-            'type': 'apiKey',
-            'name': 'Authorization',
-            'in': 'header'
-        }
-    }
-}
 
 REST_FRAMEWORK = {
     #'EXCEPTION_HANDLER': 'mysite.notes.utils.custom_exception_handler',
@@ -98,6 +89,14 @@ TEMPLATES = [
         },
     },
 ]
+
+CACHES = {
+   'default': {
+      'BACKEND': 'django.core.cache.backends.memcached.MemcachedCache',
+      'LOCATION': '127.0.0.1:11211',
+   }
+}
+
 
 AUTH_USER_MODEL = 'accountmanagement.Account'
 

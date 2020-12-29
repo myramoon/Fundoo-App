@@ -9,7 +9,7 @@ class Cache:
     @staticmethod
     def set_cache(key, value):
         """
-        it takes key and value value as inputs and stores it in redis server and has expiry time of 60 seconds
+        takes key[id] and value[token] value as inputs and stores it in redis server and has expiration time of 60 seconds
         """
         r.set(key, value)
         r.expire(key, time=60)
@@ -20,3 +20,5 @@ class Cache:
         it takes key as input and returns value stored with that key
         """
         return r.get(key)
+
+#factory for cache

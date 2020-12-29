@@ -70,9 +70,11 @@ def manage_response(**kwargs):
         result['status']=kwargs['status']
         result['message']=kwargs['message']
         result['data']=kwargs['data']
+        logger.debug('validated data: {}'.format(kwargs['log']))
     else:
         result['status']=kwargs['status']
         result['message']=kwargs['message']
+        logger.error(kwargs['error'])
     return result
 
 
