@@ -12,7 +12,7 @@ class Cache:
         takes key[id] and value[token] value as inputs and stores it in redis server and has expiration time of 60 seconds
         """
         r.set(key, value)
-        r.expire(key, time=60)
+        r.expire(key, time=8000)
 
     @staticmethod
     def get_cache(key):

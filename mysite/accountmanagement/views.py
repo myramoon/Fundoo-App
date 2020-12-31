@@ -4,7 +4,7 @@ Author: Anam Fazal
 Created on: Dec 12, 2020 
 """
 
-import os,jwt,logging
+import os,jwt
 from django.shortcuts import render
 from django.contrib.sites.shortcuts import get_current_site
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
@@ -28,16 +28,6 @@ from decouple import config
 from rest_framework.exceptions import AuthenticationFailed
 from services.encrypt import Encrypt
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-
-formatter = logging.Formatter('%(levelname)s | %(message)s')
-
-file_handler = logging.FileHandler('log_accountmanagement.log')
-file_handler.setFormatter(formatter)
-
-logger.addHandler(file_handler)
-
 class CustomRedirect(HttpResponsePermanentRedirect):
     allowed_schemes = [os.environ.get('APP_SCHEME'), 'http', 'https']
 
@@ -59,18 +49,18 @@ class Login(generics.GenericAPIView):
             serializer.is_valid(raise_exception=True)
             user = Account.objects.get(email=serializer.data['email'])
             token = Encrypt.encode(user.id)
-            token = jwt.encode({"id": user.id}, "secret", algorithm="HS256").decode('utf-8')
+            #token = jwt.encode({"id": user.id}, "secret", algorithm="HS256").decode('utf-8')
             Cache.set_cache("TOKEN_"+str(user.id)+"_AUTH", token)
             result = utils.manage_response(status=True ,message = 'Token generated',data = token ,log = serializer.data)
             return Response(result, status=status.HTTP_200_OK)
         except Account.DoesNotExist as e:
-            result = utils.manage_response(status=False,message = 'Account does not exist',error=str(e))
+            result = utils.manage_response(status=False,message = 'Account does not exist',log=str(e))
             return Response(result, status.HTTP_400_BAD_REQUEST)
         except AuthenticationFailed as e:
-            result = utils.manage_response(status=False,message = 'Please enter a valid token' ,error=str(e))
+            result = utils.manage_response(status=False,message = 'Please enter a valid token' ,log=str(e))
             return Response(result, status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            result = utils.manage_response(status=False,message = 'some other issue.Please try again' ,error=str(e))
+            result = utils.manage_response(status=False,message = 'some other issue.Please try again' ,log=str(e))
             return Response(result, status.HTTP_400_BAD_REQUEST)
 
 
@@ -103,7 +93,7 @@ class Registration(generics.GenericAPIView):
             result = utils.manage_response(status=True ,message = 'Registration successful',data = user_data ,log = serializer.data)
             return Response(result, status=status.HTTP_201_CREATED)
         except Exception as e:
-            result = utils.manage_response(status=False,message = 'some other issue.Please try again' ,error=str(e))
+            result = utils.manage_response(status=False,message = 'some other issue.Please try again' ,log=str(e))
             return Response(result, status.HTTP_400_BAD_REQUEST)
 
 
@@ -127,16 +117,16 @@ class VerifyEmail(views.APIView):
                 user.is_verified = True
                 user.is_active = True
                 user.save()
-            result = utils.manage_response(status=True ,data = 'User activation successful' ,log = 'Activation successful')
+            result = utils.manage_response(status=True ,message='User activated',data = 'User activation successful' ,log = 'Activation successful')
             return Response(result, status=status.HTTP_200_OK)
         except jwt.ExpiredSignatureError as identifier:
-            logger.exception('Exception due to expired signature')
+            #logger.exception('Exception due to expired signature')
             return Response({'error': 'Activation Expired'}, status=status.HTTP_400_BAD_REQUEST)
         except jwt.exceptions.DecodeError as identifier:
-            logger.exception('Exception due to error in decoding')
+            #logger.exception('Exception due to error in decoding')
             return Response({'error': 'Invalid token'}, status=status.HTTP_400_BAD_REQUEST)
-        except:
-            logger.exception('Exception due to other reasons')
+        except Exception as e:
+            #logger.exception('Exception due to other reasons')
             return Response({'error': 'Something went wrong'})
 
 

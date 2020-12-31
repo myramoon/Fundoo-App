@@ -3,24 +3,28 @@ Overview: contains logic for converting emails or label names to ids in request.
 Author: Anam Fazal
 Created on: Dec 18, 2020 
 """
+import logging
 from labels.models import Label
 from accountmanagement.models import Account
 
-def get_user(request):
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+formatter = logging.Formatter('%(levelname)s | %(message)s')
+
+file_handler = logging.FileHandler('log_accountmanagement.log')
+file_handler.setFormatter(formatter)
+
+logger.addHandler(file_handler)
+
+def set_user(request,user_id):
     """[sets user email to associated user id and modifies request.data]
     Args:
         request ([QueryDict]): [post data]
     Raises:
         Account.DoesNotExist: [if given email isn't found in database]
     """
-    request.POST._mutable = True
-    user_email=request.data.get('user')
-    user_qs = Account.objects.filter(email=user_email)
-    if not user_qs:
-        raise Account.DoesNotExist('No such account exists')
-    if user_qs.exists() and user_qs.count() == 1:
-        user_obj = user_qs.first()              #assign object from queryset 
-        user_id=user_obj.id                     #assign id of object
+    request.POST._mutable = True                
     request.data["user"] = user_id
     request.POST._mutable = False
 
@@ -66,19 +70,26 @@ def get_label_list(request):
 def manage_response(**kwargs):
 
     result = {}
-    if 'data' in kwargs:
+    #if 'data' in kwargs:
+    if kwargs['status'] == True:
         result['status']=kwargs['status']
         result['message']=kwargs['message']
-        result['data']=kwargs['data']
+        if 'data' in kwargs:
+            result['data']=kwargs['data']
         logger.debug('validated data: {}'.format(kwargs['log']))
     else:
         result['status']=kwargs['status']
         result['message']=kwargs['message']
-        logger.error(kwargs['error'])
+        logger.error(kwargs['log'])
     return result
 
-
-
+def check_collaborator(note,current_user):
+    
+    collaborator_qs = note.collaborators.all()
+    for collaborator in collaborator_qs:
+        if collaborator.id == current_user:
+            return collaborator.id
+    
 
 
 

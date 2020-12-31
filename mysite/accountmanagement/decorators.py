@@ -20,21 +20,25 @@ def user_login_required(view_func):
         try:
             token = request.META['HTTP_AUTHORIZATION']
             decoded_token = Encrypt.decode(token)
+            
             if Cache.get_cache("TOKEN_"+str(decoded_token['id'])+"_AUTH") is not None:
-                request.user = Account.objects.get(id=decoded_token['id'])
-                return view_func(request, *args, **kwargs)
-            result = utils.manage_response(status=False,message='User must be logged in')
-            return HttpResponse(json.dumps(result), status=status.HTTP_400_BAD_REQUEST)
+                kwargs['userid'] = decoded_token['id']
+                return view_func(request, *args , **kwargs)
+                
+            else:  
+                result = utils.manage_response(status=False,message='User must be logged in')
+                return HttpResponse(result,status.HTTP_403_FORBIDDEN)
+
         except jwt.ExpiredSignatureError as e:
-            result = utils.manage_response(status=False,message='Activation has expired.',error=e)
+            result = utils.manage_response(status=False,message='Activation has expired.',log=str(e))
             #logging.exception('{} exception = {}, status_code = {}'.format(result, str(e), status.HTTP_400_BAD_REQUEST))
             return HttpResponse(json.dumps(result), status.HTTP_400_BAD_REQUEST)
         except jwt.exceptions.DecodeError as e:
-            result = utils.manage_response(status=False,message='please provide a valid token',error=e)
+            result = utils.manage_response(status=False,message='please provide a valid token',log=str(e))
             #logging.exception('{}, exception = {}, status_code = {}'.format(result, str(e), status.HTTP_400_BAD_REQUEST))
             return HttpResponse(json.dumps(result), status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            result = utils.manage_response(status=False,message='Something went wrong.Please try again.',error=e)
+            result = utils.manage_response(status=False,message=str(e),log=str(e))
             return HttpResponse(json.dumps(result),status.HTTP_400_BAD_REQUEST)
 
     return wrapper
