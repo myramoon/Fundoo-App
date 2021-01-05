@@ -5,17 +5,20 @@ Created on: Dec 18, 2020
 """
 import logging
 from labels.models import Label
+from rest_framework import status
+from rest_framework.response import Response
 from accountmanagement.models import Account
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-formatter = logging.Formatter('%(levelname)s | %(message)s')
+formatter = logging.Formatter('%(asctime)s  %(name)s  %(levelname)s: %(message)s')
 
-file_handler = logging.FileHandler('log_accountmanagement.log')
+file_handler = logging.FileHandler('log_utils.log')
 file_handler.setFormatter(formatter)
 
 logger.addHandler(file_handler)
+
 
 def set_user(request,user_id):
     """[sets user email to associated user id and modifies request.data]
@@ -35,23 +38,31 @@ def get_collaborator_list(request):
     Args:  
         request ([QueryDict]): [post data]
     """
-    request.POST._mutable = True
-    collaborators_list=[]                                           #holds ids associated to label names
-    for collaborator_email in request.data.get('collaborators'):
-        collab_qs = Account.objects.filter(email=collaborator_email)
-        if not collab_qs:
-            raise Account.DoesNotExist('No such user account exists')
-        if collab_qs.exists() and collab_qs.count() == 1:
-            collab_obj = collab_qs.first()                         #assign object from queryset 
-            collaborators_list.append(collab_obj.id)               # append object id of the obtained object to list
-    request.data["collaborators"] = collaborators_list
-    request.POST._mutable = False
-
+    try:
+        request.POST._mutable = True
+        collaborators_list=[]                                           #holds ids associated to label names
+        for collaborator_email in request.data.get('collaborators'):
+            collab_qs = Account.objects.filter(email=collaborator_email)
+            if not collab_qs:
+                raise Account.DoesNotExist('No such user account exists')
+            if collab_qs.exists() and collab_qs.count() == 1:
+                collab_obj = collab_qs.first()                         #assign object from queryset
+                collaborators_list.append(collab_obj.id)               # append object id of the obtained object to list
+        request.data["collaborators"] = collaborators_list
+        request.POST._mutable = False
+    except Account.DoesNotExist as e:
+        result = manage_response(status=False, message='account not found', log=str(e), logger_obj=logger)
+        return Response(result, status.HTTP_400_BAD_REQUEST)
 def get_label_list(request):
+    """
+
+    :param request:
+    :return:
+    """
     """[maps label titles to their label ids and modifies request.data]
 
     Args:
-        request ([QueryDict]): [post data]
+        request ([QueryDict]): [post data:]
     """ 
     request.POST._mutable = True
     label_list=[]                                           #holds ids associated to label names
@@ -68,28 +79,24 @@ def get_label_list(request):
     
 
 def manage_response(**kwargs):
+    """
 
+    :param kwargs:
+    :return:
+    """
     result = {}
-    #if 'data' in kwargs:
+    result['status'] = kwargs['status']
+    result['message'] = kwargs['message']
+
     if kwargs['status'] == True:
-        result['status']=kwargs['status']
-        result['message']=kwargs['message']
         if 'data' in kwargs:
-            result['data']=kwargs['data']
-        logger.debug('validated data: {}'.format(kwargs['log']))
+            result['data'] = kwargs['data']
+        kwargs['logger_obj'].debug('validated data: {}'.format(kwargs['log']))
     else:
-        result['status']=kwargs['status']
-        result['message']=kwargs['message']
-        logger.error(kwargs['log'])
+        kwargs['logger_obj'].error('error: {}'.format(kwargs['log']))
     return result
 
-def check_collaborator(note,current_user):
-    
-    collaborator_qs = note.collaborators.all()
-    for collaborator in collaborator_qs:
-        if collaborator.id == current_user:
-            return collaborator.id
-    
+
 
 
 

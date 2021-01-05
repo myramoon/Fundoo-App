@@ -21,4 +21,17 @@ class Cache:
         """
         return r.get(key)
 
+    @staticmethod
+    def delete_cache(key):
+        """
+
+        :param key: [mandatory]:key of cache record to be deleted
+        """
+        r.delete(key)
+
+
+
+
+
+
 #factory for cache
