@@ -5,7 +5,8 @@ Created on: Dec 12, 2020
 """
 
 import os,jwt,logging
-from django.shortcuts import render
+from django.contrib import messages
+from .tasks import send_email
 from django.contrib.sites.shortcuts import get_current_site
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.http import HttpResponsePermanentRedirect
@@ -19,7 +20,6 @@ from rest_framework.response import Response
 from .models import Account
 from notes import utils
 from .serializers import RegisterSerializer, SetNewPasswordSerializer, ResetPasswordEmailRequestSerializer, EmailVerificationSerializer, LoginSerializer,UserDetailsSerializer
-from .utils import Util 
 from services.cache import Cache
 from rest_framework.exceptions import AuthenticationFailed
 from services.encrypt import Encrypt
@@ -29,7 +29,7 @@ logger.setLevel(logging.DEBUG)
 
 formatter = logging.Formatter('%(asctime)s  %(name)s  %(levelname)s: %(message)s')
 
-file_handler = logging.FileHandler('log_accounts.log')
+file_handler = logging.FileHandler('log_accounts.log',mode='w')
 file_handler.setFormatter(formatter)
 
 logger.addHandler(file_handler)
@@ -48,8 +48,13 @@ class Login(generics.GenericAPIView):
     
     def post(self, request):
         """[validates user email and password, sets user id in cache]
-        Returns:
-            [dictionary]: [token]
+
+        :param request:[mandatory]:[string]:email of user
+                                   [string]:password
+        :return: [dictionary]:status[boolean]
+                              response message[string]
+                              token[string]
+                 [int]:status code
         """
         try:
             serializer = self.serializer_class(data=request.data)
@@ -78,8 +83,15 @@ class Registration(generics.GenericAPIView):
     def post(self, request):
         """[if registration details are proper then creates new user and sends verification email]
 
-        Returns:
-            [Response]: [user data after registration]
+           :param request:[mandatory]:[string]:email of user
+                                      [string]:password
+                                      [string]:first name of user
+                                      [string]:last name of user
+                                      [string]:user name of user
+           :return: [dictionary]:status[boolean]
+                                 response message[string]
+                                 posted data[dictionary]
+                          [int]:status code
         """
         try:
             serializer = self.serializer_class(data=request.data)
@@ -95,7 +107,8 @@ class Registration(generics.GenericAPIView):
                     'to_email': user.email,
                     'email_subject': 'Verify your email'}
 
-            Util.send_email(data)
+            send_email.delay(data)
+            messages.success(self.request,'We have sent an activation email to your email.')
             result = utils.manage_response(status=True ,message = 'Registration successful',data = user_data ,log = 'Created new user',logger_obj=logger)
             return Response(result, status=status.HTTP_201_CREATED)
         except Exception as e:
@@ -171,7 +184,7 @@ class RequestPasswordResetEmail(generics.GenericAPIView):
             data = {'email_body': email_body, 
                     'to_email': user.email,
                     'email_subject': 'Reset your passsword'}
-            Util.send_email(data)
+            send_email.delay(data)
             result = utils.manage_response(status=True ,message = 'We have sent you a link to reset your password' ,log = 'password link sent successfully',logger_obj=logger)
         return Response(result, status=status.HTTP_200_OK)
 

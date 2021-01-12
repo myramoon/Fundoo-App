@@ -16,6 +16,7 @@ from rest_framework import status
 from .serializers import LabelSerializer
 from .models import Label
 from notes import utils
+from exceptions.exceptions import CustomError,ExceptionType
 
 
 # custom exceptions,test case ,put ,delete-delete existing from cache
@@ -24,7 +25,7 @@ logger.setLevel(logging.DEBUG)
 
 formatter = logging.Formatter('%(asctime)s  %(name)s  %(levelname)s: %(message)s')
 
-file_handler = logging.FileHandler('log_labels.log')
+file_handler = logging.FileHandler('log_labels.log',mode='w')
 file_handler.setFormatter(formatter)
 
 logger.addHandler(file_handler)
@@ -33,21 +34,26 @@ logger.addHandler(file_handler)
 
 @method_decorator(user_login_required, name='dispatch')
 class ManageLabel(APIView):
-    """[allows viewing labels for get and creates new label for post]
+    """[allows CRUD operations on labels]
 
     Returns:
-        [json]: [list of notes with complete details or creation confirmation and status code]
+        [json]: [list of created/updated/retrieved note(s) with complete details or deletion confirmation and status code]
     """
 
     def get(self, request, **kwargs):
-        """[displays all notes]
-        Returns:
-            [Response]: [notes result data and status]
+        """ [displays all labels that requesting user is authorized to see]
+
+        :param request:none
+        :param pk: [optional]:[integer] id of the label to be retrieved
+        :param kwargs:[mandatory]:[string]authentication token containing user id
+        :return:labels owned by the requesting user and status code
         """
         try:
             current_user = kwargs['userid']
 
             if kwargs.get('pk'):
+                if not Label.objects.filter(id=kwargs.get('pk')).exists():
+                    raise CustomError(ExceptionType.NonExistentError, "Requested label does not exist")
                 label = Label.objects.get(Q(id=kwargs.get('pk')), Q(is_deleted=False),
                                         Q(user=current_user))
                 serializer = LabelSerializer(label)
@@ -60,15 +66,22 @@ class ManageLabel(APIView):
                                            log='retrieved labels', logger_obj=logger)
             return Response(result, status.HTTP_200_OK)
 
+        except CustomError as e:
+            result = utils.manage_response(status=False, message=e.message, log=str(e),
+                                           logger_obj=logger)
+            return Response(result, status.HTTP_400_BAD_REQUEST)
+
         except Exception as e:
             result = utils.manage_response(status=False, message='Something label went wrong.Please try again.', log=str(e),
                                            logger_obj=logger)
             return Response(result, status.HTTP_404_NOT_FOUND)
 
     def post(self, request, **kwargs):
-        """[creates new note]
-        Returns:
-            [Response]: [result data and status]
+        """[creates new label on requesting user's id]
+
+        :param request: [string]label name
+        :param kwargs: [mandatory]:[string]authentication token containing user id
+        :return: Created label's details and status code
         """
         try:
             utils.set_user(request, kwargs['userid'])
@@ -76,7 +89,7 @@ class ManageLabel(APIView):
             if serializer.is_valid(raise_exception=True):  # Return a 400 response if the data was invalid.
                 serializer.save()
                 result = utils.manage_response(status=True, message='created successfully', data=serializer.data,
-                                               log='created new note', logger_obj=logger)
+                                               log='created new label', logger_obj=logger)
                 return Response(result, status.HTTP_201_CREATED)
             else:
 
@@ -94,10 +107,16 @@ class ManageLabel(APIView):
 
     def delete(self, request, pk, **kwargs):
         """[soft deletes existing label]
-        Returns:
-            [Response]: [confirmation message and status]
+
+        :param request: none
+        :param pk: [mandatory]:[integer] id of the label to be deleted
+        :param kwargs: [mandatory]:[string]authentication token containing user id
+        :return: Deletion confirmation and status code
         """
+
         try:
+            if not Label.objects.filter(id=pk).exists():
+                raise CustomError(ExceptionType.NonExistentError, "Requested label does not exist")
             label = Label.objects.get(Q(id=pk), Q(is_deleted=False),
                                     Q(user=kwargs['userid']))
 
@@ -106,10 +125,11 @@ class ManageLabel(APIView):
                                            log=('deleted label with id: {}'.format(pk)), logger_obj=logger)
             return Response(result, status.HTTP_204_NO_CONTENT)
 
-        except Label.DoesNotExist as e:
+        except CustomError as e:
+            result = utils.manage_response(status=False, message=e.message, log=str(e),
+                                           logger_obj=logger)
+            return Response(result, status.HTTP_400_BAD_REQUEST)
 
-            result = utils.manage_response(status=False, message='note not found', log=str(e), logger_obj=logger)
-            return Response(result, status.HTTP_404_NOT_FOUND)
         except Exception as e:
 
             result = utils.manage_response(status=False, message='Something went wrong.Please try again.', log=str(e),
@@ -117,12 +137,16 @@ class ManageLabel(APIView):
             return Response(result, status.HTTP_400_BAD_REQUEST)
 
     def put(self, request, pk, **kwargs):
-        """[updates existing note]
-        Returns:
-            [Response]: [updated details and status]
+        """[updates existing label with new details]
+
+        :param request: one or more label fields with new values
+        :param pk: [mandatory]:[integer]id of the label to be updated
+        :param kwargs: [mandatory]:[string]authentication token containing user id
+        :return: updated label details and status code
         """
         try:
-
+            if not Label.objects.filter(id=pk).exists():
+                raise CustomError(ExceptionType.NonExistentError, "Requested label does not exist")
             label = Label.objects.get(Q(id=pk), Q(is_deleted=False),
                                     Q(user=kwargs['userid']))
 
@@ -139,10 +163,11 @@ class ManageLabel(APIView):
                                            log='updated note', logger_obj=logger)
             return Response(result, status.HTTP_200_OK)
 
-        except Label.DoesNotExist as e:
+        except CustomError as e:
+            result = utils.manage_response(status=False, message=e.message, log=str(e),
+                                           logger_obj=logger)
+            return Response(result, status.HTTP_400_BAD_REQUEST)
 
-            result = utils.manage_response(status=False, message='note not found', log=str(e), logger_obj=logger)
-            return Response(result, status.HTTP_404_NOT_FOUND)
         except Exception as e:
 
             result = utils.manage_response(status=False, message='Something went wrong.Please try again.', log=str(e),

@@ -13,4 +13,5 @@ class Label(models.Model):
 
     def soft_delete(self):
         self.is_deleted = True
-        self.save()  
+        self.save()
+

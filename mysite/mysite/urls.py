@@ -14,8 +14,7 @@ Including another URLconf
 from __future__ import absolute_import
 from django.contrib import admin
 from django.urls import path, include
-from rest_framework import routers
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework_simplejwt.views import TokenRefreshView
 from accountmanagement import views
 
 

@@ -14,7 +14,7 @@ logger.setLevel(logging.DEBUG)
 
 formatter = logging.Formatter('%(asctime)s  %(name)s  %(levelname)s: %(message)s')
 
-file_handler = logging.FileHandler('log_utils.log')
+file_handler = logging.FileHandler('log_utils.log',mode='w')
 file_handler.setFormatter(formatter)
 
 logger.addHandler(file_handler)
@@ -22,8 +22,9 @@ logger.addHandler(file_handler)
 
 def set_user(request,user_id):
     """[sets user email to associated user id and modifies request.data]
-    Args:
-        request ([QueryDict]): [post data]
+    :param request: note details
+    :param user_id: id of user from decoded token
+    :return: -
     Raises:
         Account.DoesNotExist: [if given email isn't found in database]
     """
@@ -35,8 +36,8 @@ def set_user(request,user_id):
 def get_collaborator_list(request):
     """[maps collaborator emails to their user ids and modifies request.data]
 
-    Args:  
-        request ([QueryDict]): [post data]
+    :param request: [optional]:[string]collaborator email(s)
+    :return: -
     """
     try:
         request.POST._mutable = True
@@ -53,16 +54,13 @@ def get_collaborator_list(request):
     except Account.DoesNotExist as e:
         result = manage_response(status=False, message='account not found', log=str(e), logger_obj=logger)
         return Response(result, status.HTTP_400_BAD_REQUEST)
-def get_label_list(request):
-    """
 
-    :param request:
-    :return:
-    """
+
+def get_label_list(request):
     """[maps label titles to their label ids and modifies request.data]
 
-    Args:
-        request ([QueryDict]): [post data:]
+    :param request: [optional]:[string]label name(s)
+    :return: -
     """ 
     request.POST._mutable = True
     label_list=[]                                           #holds ids associated to label names
@@ -79,10 +77,14 @@ def get_label_list(request):
     
 
 def manage_response(**kwargs):
-    """
+    """[prepares result dictionary to be sent as response]
 
-    :param kwargs:
-    :return:
+    :param kwargs: [mandatory]:[int]response status
+                               [string]response message
+                               [string]log message
+                               [object]logger object
+                   [optional]:[dict] data for successful requests
+    :return: dictionary containing result
     """
     result = {}
     result['status'] = kwargs['status']
@@ -110,15 +112,3 @@ def manage_response(**kwargs):
 
 
 
-#from rest_framework.views import exception_handler
-
-# def custom_exception_handler(exc, context):
-#      #Call REST framework's default exception handler first, 
-#     #to get the standard error response.
-#     response = exception_handler(exc, context)
-
-#     # Now add the HTTP status code to the response.
-#     if response is not None:
-#         response.data['status_code'] = response.status_code
-
-#     return response
