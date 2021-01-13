@@ -13,6 +13,8 @@ class EmailThread(threading.Thread):
 class Util:
     @staticmethod
     def send_email(data):
+        """[sends email on the basis of set data in calling view]
+        """
         email = EmailMessage(
             subject=data['email_subject'],body=data['email_body'], to=[data['to_email']])
         EmailThread(email).start()
