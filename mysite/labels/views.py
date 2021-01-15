@@ -7,6 +7,7 @@ Created on: Dec 17, 2020
 
 
 import logging
+import os
 from django.db.models import Q
 from django.utils.decorators import method_decorator
 from accountmanagement.decorators import user_login_required
@@ -24,8 +25,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 formatter = logging.Formatter('%(asctime)s  %(name)s  %(levelname)s: %(message)s')
-
-file_handler = logging.FileHandler('log_labels.log',mode='w')
+file_handler = logging.FileHandler(os.path.abspath("loggers/log_labels.log"),mode='w')
 file_handler.setFormatter(formatter)
 
 logger.addHandler(file_handler)
@@ -64,17 +64,17 @@ class ManageLabel(APIView):
 
             result = utils.manage_response(status=True, message='retrieved successfully', data=serializer.data,
                                            log='retrieved labels', logger_obj=logger)
-            return Response(result, status.HTTP_200_OK)
+            return Response(result, status.HTTP_200_OK,content_type="application/json")
 
         except CustomError as e:
             result = utils.manage_response(status=False, message=e.message, log=str(e),
                                            logger_obj=logger)
-            return Response(result, status.HTTP_400_BAD_REQUEST)
+            return Response(result, status.HTTP_400_BAD_REQUEST,content_type="application/json")
 
         except Exception as e:
             result = utils.manage_response(status=False, message='Something label went wrong.Please try again.', log=str(e),
                                            logger_obj=logger)
-            return Response(result, status.HTTP_404_NOT_FOUND)
+            return Response(result, status.HTTP_404_NOT_FOUND,content_type="application/json")
 
     def post(self, request, **kwargs):
         """[creates new label on requesting user's id]
@@ -90,20 +90,20 @@ class ManageLabel(APIView):
                 serializer.save()
                 result = utils.manage_response(status=True, message='created successfully', data=serializer.data,
                                                log='created new label', logger_obj=logger)
-                return Response(result, status.HTTP_201_CREATED)
+                return Response(result, status.HTTP_201_CREATED,content_type="application/json")
             else:
 
                 result = utils.manage_response(status=False, message=serializer.errors, log=serializer.errors,
                                                logger_obj=logger)
-                return Response(result, status.HTTP_400_BAD_REQUEST)
+                return Response(result, status.HTTP_400_BAD_REQUEST,content_type="application/json")
         except Label.DoesNotExist as e:
 
             result = utils.manage_response(status=False, message='note not found', log=str(e), logger_obj=logger)
-            return Response(result, status.HTTP_404_NOT_FOUND)
+            return Response(result, status.HTTP_404_NOT_FOUND,content_type="application/json")
         except Exception as e:
 
             result = utils.manage_response(status=False, message=str(e), log=str(e), logger_obj=logger)
-            return Response(result, status.HTTP_400_BAD_REQUEST)
+            return Response(result, status.HTTP_400_BAD_REQUEST,content_type="application/json")
 
     def delete(self, request, pk, **kwargs):
         """[soft deletes existing label]
@@ -123,18 +123,18 @@ class ManageLabel(APIView):
             label.soft_delete()
             result = utils.manage_response(status=True, message='label deleted successfully',
                                            log=('deleted label with id: {}'.format(pk)), logger_obj=logger)
-            return Response(result, status.HTTP_204_NO_CONTENT)
+            return Response(result, status.HTTP_204_NO_CONTENT,content_type="application/json")
 
         except CustomError as e:
             result = utils.manage_response(status=False, message=e.message, log=str(e),
                                            logger_obj=logger)
-            return Response(result, status.HTTP_400_BAD_REQUEST)
+            return Response(result, status.HTTP_400_BAD_REQUEST,content_type="application/json")
 
         except Exception as e:
 
             result = utils.manage_response(status=False, message='Something went wrong.Please try again.', log=str(e),
                                            logger_obj=logger)
-            return Response(result, status.HTTP_400_BAD_REQUEST)
+            return Response(result, status.HTTP_400_BAD_REQUEST,content_type="application/json")
 
     def put(self, request, pk, **kwargs):
         """[updates existing label with new details]
@@ -157,21 +157,21 @@ class ManageLabel(APIView):
             else:
                 result = utils.manage_response(status=False, message=serializer.errors, log=serializer.errors,
                                                logger_obj=logger)
-                return Response(result, status.HTTP_400_BAD_REQUEST)
+                return Response(result, status.HTTP_400_BAD_REQUEST,content_type="application/json")
 
             result = utils.manage_response(status=True, message='updated successfully', data=serializer.data,
                                            log='updated note', logger_obj=logger)
-            return Response(result, status.HTTP_200_OK)
+            return Response(result, status.HTTP_200_OK,content_type="application/json")
 
         except CustomError as e:
             result = utils.manage_response(status=False, message=e.message, log=str(e),
                                            logger_obj=logger)
-            return Response(result, status.HTTP_400_BAD_REQUEST)
+            return Response(result, status.HTTP_400_BAD_REQUEST, content_type="application/json")
 
         except Exception as e:
 
             result = utils.manage_response(status=False, message='Something went wrong.Please try again.', log=str(e),
                                            logger_obj=logger)
-            return Response(result, status.HTTP_400_BAD_REQUEST)
+            return Response(result, status.HTTP_400_BAD_REQUEST, content_type="application/json")
 
 

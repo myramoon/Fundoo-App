@@ -5,6 +5,7 @@ Created on: Dec 15, 2020
 """
 
 import logging
+import os
 from django.db.models import Q
 from django.utils.decorators import method_decorator
 from accountmanagement.decorators import user_login_required
@@ -19,17 +20,17 @@ from services.cache import Cache
 
 
 
-
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 formatter = logging.Formatter('%(asctime)s  %(name)s  %(levelname)s: %(message)s')
 
-file_handler = logging.FileHandler('log_notes.log',mode='w')
+file_handler = logging.FileHandler(os.path.abspath("loggers/log_notes.log"),mode='w')
 file_handler.setFormatter(formatter)
 
 logger.addHandler(file_handler)
 
+cache=Cache.getInstance()   #get initialised Cache instance from services.Cache
 
 class NotesOverview(APIView):
     """[displays a list of urls that can be used for different operations]
@@ -64,27 +65,34 @@ class ManageNotes(APIView):
         try:
             current_user = kwargs['userid']
             if kwargs.get('pk'):
-                if Cache.get_cache("NOTE_"+str(kwargs.get('pk'))+"_DETAIL") is not None:
-                    note=Cache.get_cache("NOTE_"+str(kwargs.get('pk'))+"_DETAIL")
-                    result=utils.manage_response(status=True,message='retrieved successfully',data=note,log='retrieved specific note from cache',logger_obj=logger)
-                    return Response(result , status.HTTP_200_OK)
-                else:
+                if not Note.objects.filter(id=kwargs.get('pk')).exists():
                     raise CustomError(ExceptionType.NonExistentError, "Requested note does not exist")
+
+                if cache.get("USER_"+str(current_user)+"_NOTE_"+str(kwargs.get('pk'))+"_DETAIL") is not None:
+                    note=cache.get("USER_"+str(current_user)+"_NOTE_"+str(kwargs.get('pk'))+"_DETAIL")
+                    result=utils.manage_response(status=True,message='retrieved successfully',data=note,log='retrieved specific note from cache',logger_obj=logger)
+                    return Response(result ,status.HTTP_200_OK ,content_type="application/json")
+                else:
+                    note = Note.objects.get(Q(id=kwargs.get('pk')), Q(is_trashed=False),
+                                            Q(user=current_user) | Q(collaborators=current_user))
+                    serializer = NoteSerializer(note)
+                    cache.set("USER_"+str(current_user)+"_NOTE_" + str(note.id) + "_DETAIL", str(serializer.data))
+
 
             else:
                 notes = Note.objects.filter(Q(user=current_user)|Q(collaborators=current_user)).exclude(is_trashed=True).distinct()
                 serializer = NoteSerializer(notes, many=True)
 
             result=utils.manage_response(status=True,message='retrieved successfully',data=serializer.data,log='retrieved notes',logger_obj=logger)
-            return Response(result , status.HTTP_200_OK)
+            return Response(result , status.HTTP_200_OK , content_type="application/json")
 
         except CustomError as e:
             result = utils.manage_response(status=False, message=e.message, log=str(e),
                                            logger_obj=logger)
-            return Response(result, status.HTTP_400_BAD_REQUEST)
+            return Response(result, status.HTTP_400_BAD_REQUEST,content_type="application/json")
         except Exception as e:
             result=utils.manage_response(status=False,message='Something went wrong.Please try again.',log=str(e),logger_obj=logger)
-            return Response(result,status.HTTP_400_BAD_REQUEST)
+            return Response(result,status.HTTP_400_BAD_REQUEST ,content_type="application/json")
 
 
     def post(self, request , **kwargs):
@@ -112,19 +120,18 @@ class ManageNotes(APIView):
             serializer = NoteSerializer(data=request.data)
             if serializer.is_valid(raise_exception=True):               # Return a 400 response if the data was invalid.
                 serializer.save()
-                Cache.set_cache("NOTE_" + str(serializer.data['id']) + "_DETAIL", str(serializer.data))
                 result = utils.manage_response(status=True,message='created successfully',data=serializer.data,log=('created new note with id {}'.format(serializer.data['id'])),logger_obj=logger)
-                return Response(result,status.HTTP_201_CREATED)
+                return Response(result,status.HTTP_201_CREATED,content_type="application/json")
             else:
                 result = utils.manage_response(status=False,message=serializer.errors , log=serializer.errors , logger_obj=logger)
-                return Response(result,status.HTTP_400_BAD_REQUEST)
+                return Response(result,status.HTTP_400_BAD_REQUEST,content_type="application/json")
 
         except CustomError as e:
              result = utils.manage_response(status=False, message=e.message, log=str(e), logger_obj=logger)
-             return Response(result, status.HTTP_400_BAD_REQUEST)
+             return Response(result, status.HTTP_400_BAD_REQUEST,content_type="application/json")
         except Exception as e:
             result = utils.manage_response(status=False,message=str(e),log=str(e) , logger_obj=logger)
-            return Response(result,status.HTTP_400_BAD_REQUEST)
+            return Response(result , status.HTTP_400_BAD_REQUEST , content_type="application/json")
 
     def delete(self,request,pk,**kwargs):
         """[soft deletes existing note]
@@ -136,25 +143,26 @@ class ManageNotes(APIView):
         """
 
         try:
+            current_user=kwargs['userid']
             if not Note.objects.filter(id=pk).exists():
                 raise CustomError(ExceptionType.NonExistentError, "Requested note does not exist")
             note = Note.objects.get(Q(id=pk),Q(is_trashed=False),
-                            Q(user=kwargs['userid']))
+                            Q(user=current_user))
 
             note.soft_delete()
-            Cache.delete_cache("NOTE_"+str(note.id)+"_DETAIL")
+            cache.delete("USER_"+str(current_user)+"_NOTE_"+str(note.id)+"_DETAIL")
             result=utils.manage_response(status=True,message='note deleted successfully',log=('deleted note with id: {}'.format(pk)),logger_obj=logger)
-            return Response(result,status.HTTP_204_NO_CONTENT)
+            return Response(result,status.HTTP_204_NO_CONTENT , content_type="application/json")
 
         except CustomError as e:
             result = utils.manage_response(status=False, message=e.message, log=str(e),
                                            logger_obj=logger)
-            return Response(result, status.HTTP_400_BAD_REQUEST)
+            return Response(result, status.HTTP_400_BAD_REQUEST , content_type="application/json")
 
         except Exception as e:
 
             result=utils.manage_response(status=False,message='Something went wrong.Please try again.',log=str(e),logger_obj=logger)
-            return Response(result,status.HTTP_400_BAD_REQUEST)
+            return Response(result,status.HTTP_400_BAD_REQUEST,content_type="application/json")
 
 
     def put(self, request, pk,**kwargs):
@@ -176,31 +184,31 @@ class ManageNotes(APIView):
             if data.get('labels'):
                 utils.get_label_list(request)
 
-
+            current_user=kwargs['userid']
             note = Note.objects.get(Q(id=pk),Q(is_trashed=False),
-                            Q(user=kwargs['userid']))
+                            Q(user=current_user))
 
             serializer = NoteSerializer(note, data=request.data , partial=True)
     
             if serializer.is_valid(raise_exception=True):
                 serializer.save()
-                Cache.delete_cache("NOTE_" + str(note.id) + "_DETAIL")
-                Cache.set_cache("NOTE_" + str(note.id) + "_DETAIL", str(serializer.data))
+                cache.delete("USER_"+str(current_user)+"_NOTE_" + str(note.id) + "_DETAIL")
+                cache.set("USER_"+str(current_user)+"_NOTE_" + str(note.id) + "_DETAIL", str(serializer.data))
             else:
                 raise CustomError(ExceptionType.ValidationError,"Please enter valid details")
 
             result=utils.manage_response(status=True,message='updated successfully',data=serializer.data,log='updated note',logger_obj=logger)
-            return Response(result, status.HTTP_200_OK)
+            return Response(result, status.HTTP_200_OK,content_type="application/json")
 
         except CustomError as e:
             result = utils.manage_response(status=False, message=e.message,
                                            log=str(e), logger_obj=logger)
-            return Response(result, status.HTTP_400_BAD_REQUEST)
+            return Response(result, status.HTTP_400_BAD_REQUEST,content_type="application/json")
 
         except Exception as e:
 
             result=utils.manage_response(status=False,message='Something went wrong.Please try again.',log=str(e),logger_obj=logger)
-            return Response(result,status.HTTP_400_BAD_REQUEST)
+            return Response(result,status.HTTP_400_BAD_REQUEST,content_type="application/json")
 
 
 
@@ -232,18 +240,20 @@ class ManageArchivedNote(APIView):
                                         Q(user=current_user) | Q(collaborators=current_user))
                 serializer = NoteSerializer(note)
 
+
+
             else:
                 notes = Note.objects.filter(Q(user=kwargs['userid'])|Q(collaborators=kwargs['userid'])).exclude(is_trashed=True).exclude(is_archived=False).distinct()
                 serializer = NoteSerializer(notes, many=True)
             
             result=utils.manage_response(status=True,message='retrieved successfully',data=serializer.data,log='retrieved archived note',logger_obj=logger)
-            return Response(result , status.HTTP_200_OK)
+            return Response(result , status.HTTP_200_OK ,content_type="application/json")
         except CustomError as e:
             result=utils.manage_response(status=False,message=e.message,log=str(e),logger_obj=logger)
-            return Response(result,status.HTTP_400_BAD_REQUEST)
+            return Response(result,status.HTTP_400_BAD_REQUEST,content_type="application/json")
         except Exception as e:
             result=utils.manage_response(status=False,message='Something went wrong.Please try again.',log=str(e),logger_obj=logger)
-            return Response(result,status.HTTP_400_BAD_REQUEST)
+            return Response(result,status.HTTP_400_BAD_REQUEST,content_type="application/json")
 
     
 
@@ -277,15 +287,15 @@ class ManagePinnedNotes(APIView):
                 serializer = NoteSerializer(notes, many=True)
             
             result=utils.manage_response(status=True,message='retrieved successfully',data=serializer.data,log='retrieved pinned note',logger_obj=logger)
-            return Response(result , status.HTTP_200_OK)
+            return Response(result , status.HTTP_200_OK , content_type="application/json")
 
         except CustomError as e:
             result=utils.manage_response(status=False,message=e.message,log=str(e),logger_obj=logger)
-            return Response(result,status.HTTP_400_BAD_REQUEST)
+            return Response(result,status.HTTP_400_BAD_REQUEST ,content_type="application/json")
 
         except Exception as e:
             result=utils.manage_response(status=False,message='Something went wrong.Please try again.',log=str(e),logger_obj=logger)
-            return Response(result,status.HTTP_400_BAD_REQUEST)
+            return Response(result,status.HTTP_400_BAD_REQUEST , content_type="application/json")
 
     
 @method_decorator(user_login_required,name='dispatch')
@@ -317,14 +327,14 @@ class ManageTrashedNotes(APIView):
                 serializer = NoteSerializer(notes, many=True)
             
             result=utils.manage_response(status=True,message='retrieved successfully',data=serializer.data,log='retrieved trashed note',logger_obj=logger)
-            return Response(result , status.HTTP_200_OK)
+            return Response(result , status.HTTP_200_OK , content_type="application/json")
 
         except CustomError as e:
             result=utils.manage_response(status=False,message=e.message,log=str(e),logger_obj=logger)
-            return Response(result,status.HTTP_400_BAD_REQUEST)
+            return Response(result,status.HTTP_400_BAD_REQUEST,content_type="application/json")
         except Exception as e:
             result=utils.manage_response(status=False,message='Something went wrong.Please try again.',log=str(e),logger_obj=logger)
-            return Response(result,status.HTTP_400_BAD_REQUEST)
+            return Response(result,status.HTTP_400_BAD_REQUEST,content_type="application/json")
 
 
 
@@ -368,16 +378,16 @@ class SearchNote(APIView):
             result = utils.manage_response(status=True, message='retrieved notes on the basis of search terms',
                                            data=serializer.data,
                                            log='retrieved searched note', logger_obj=logger)
-            return Response(result, status.HTTP_200_OK)
+            return Response(result, status.HTTP_200_OK, content_type="application/json")
 
         except CustomError as e:
             result=utils.manage_response(status=False,message=e.message,log=str(e),logger_obj=logger)
-            return Response(result,status.HTTP_404_NOT_FOUND)
+            return Response(result,status.HTTP_404_NOT_FOUND,content_type="application/json")
         except Exception as e:
             result = utils.manage_response(status=False, message='Something went wrong.Please try again.',
                                            log=str(e),
                                            logger_obj=logger)
-            return Response(result, status.HTTP_400_BAD_REQUEST)
+            return Response(result, status.HTTP_400_BAD_REQUEST,content_type="application/json")
 
 
 
@@ -390,23 +400,16 @@ class SearchNote(APIView):
 
 
 
-#Instead, what I would do is create a single periodic celery task that runs every 5 minutes, or even every 1 minute. It will query the database for any notifications that it should send out, and send them. This eliminates the revoking problem entirely.
 
 
 
 
 
- #     if not Note.objects.filter(id=kwargs.get('pk')).exists():
-                #         raise CustomError(ExceptionType.NonExistentError, "Requested note does not exist")
-                #
-                #     note = Note.objects.get(Q(id=kwargs.get('pk')),Q(is_trashed=False),
-                #                 Q(user=current_user)|Q(collaborators=current_user))
-                #     serializer = NoteSerializer(note)
-                #     Cache.set_cache("NOTE_"+str(note.id)+"_DETAIL", str(serializer.data))
-#if archived is made true,set into archived only.
-#exception handling when filter fails for id
-#test case ,put ,delete-delete existing from cache
 
 
-#indexing,comments,composite key,candidate key,model relations,mq,exceptiontests
-#if condition for cache put
+
+
+
+
+
+

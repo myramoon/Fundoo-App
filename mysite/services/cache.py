@@ -1,37 +1,47 @@
 import redis
 from decouple import config
 
-r = redis.StrictRedis(host=config('REDIS_HOST'), port=config('REDIS_PORT'))
-
 
 class Cache:
+    """
+    Instantiates cache object and returns same instance for further operations using getInstance()
+    """
+
+    __shared_instance = None
 
     @staticmethod
-    def set_cache(key, value):
-        """
-        takes key[id] and value[token] value as inputs and stores it in redis server and has expiration time of 60 seconds
-        """
-        r.set(key, value)
-        r.expire(key, time=8000)
-
-    @staticmethod
-    def get_cache(key):
-        """
-        it takes key as input and returns value stored with that key
-        """
-        return r.get(key)
-
-    @staticmethod
-    def delete_cache(key):
+    def getInstance():
+        """[returns initialised cache instance to calling view]
+        :return: cache instance stored in __shared_instance
         """
 
-        :param key: [mandatory]:key of cache record to be deleted
+        if Cache.__shared_instance == None:
+            Cache(config('REDIS_HOST'),config('REDIS_PORT'))
+        return Cache.__shared_instance
+
+    def __init__(self,host,port):
+        """[initializes a cache instance with host and port]
+
+        :param host: host to be set for redis
+        :param port: port number to be set for redis
         """
-        r.delete(key)
+
+        Cache.__shared_instance = redis.StrictRedis(host=host,port=port)
 
 
 
 
 
 
-#factory for cache
+
+
+
+
+
+
+
+
+
+
+
+

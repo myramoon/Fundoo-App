@@ -1,4 +1,4 @@
-import json,jwt
+import json,jwt,os
 from django.http import HttpResponse
 from rest_framework import status
 from notes import utils
@@ -11,7 +11,7 @@ logger.setLevel(logging.DEBUG)
 
 formatter = logging.Formatter('%(asctime)s  %(name)s  %(levelname)s: %(message)s')
 
-file_handler = logging.FileHandler('log_accounts.log',mode='w')
+file_handler = logging.FileHandler(os.path.abspath('loggers/log_accounts.log'),mode='w')
 file_handler.setFormatter(formatter)
 
 logger.addHandler(file_handler)
@@ -27,8 +27,7 @@ def user_login_required(view_func):
         try:
             token = request.META['HTTP_AUTHORIZATION']
             decoded_token = Encrypt.decode(token)
-            
-            if Cache.get_cache("TOKEN_"+str(decoded_token['id'])+"_AUTH") is not None:
+            if Cache.getInstance().get("TOKEN_"+str(decoded_token['id'])+"_AUTH") is not None:
                 kwargs['userid'] = decoded_token['id']
                 return view_func(request, *args , **kwargs)
                 

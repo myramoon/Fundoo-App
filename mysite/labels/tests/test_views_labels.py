@@ -1,7 +1,4 @@
 from django.urls import reverse
-from mixer.backend.django import mixer
-from rest_framework.test import APIClient
-from accountmanagement.views import Registration
 from rest_framework import status
 import pytest
 from django.test import TestCase

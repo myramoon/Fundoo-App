@@ -4,6 +4,7 @@ Author: Anam Fazal
 Created on: Dec 18, 2020 
 """
 import logging
+import os
 from labels.models import Label
 from rest_framework import status
 from rest_framework.response import Response
@@ -14,7 +15,7 @@ logger.setLevel(logging.DEBUG)
 
 formatter = logging.Formatter('%(asctime)s  %(name)s  %(levelname)s: %(message)s')
 
-file_handler = logging.FileHandler('log_utils.log',mode='w')
+file_handler = logging.FileHandler(os.path.abspath("loggers/log_utils.log"),mode='w')
 file_handler.setFormatter(formatter)
 
 logger.addHandler(file_handler)
@@ -53,7 +54,7 @@ def get_collaborator_list(request):
         request.POST._mutable = False
     except Account.DoesNotExist as e:
         result = manage_response(status=False, message='account not found', log=str(e), logger_obj=logger)
-        return Response(result, status.HTTP_400_BAD_REQUEST)
+        return Response(result, status.HTTP_400_BAD_REQUEST,content_type="application/json")
 
 
 def get_label_list(request):

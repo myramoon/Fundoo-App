@@ -2,7 +2,6 @@ from django.urls import reverse
 from rest_framework.test import APIClient
 from rest_framework import status
 import pytest
-from exceptions.exceptions import CustomError,ExceptionType
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 
@@ -260,6 +259,7 @@ class TrashViewTest(Data):
         user.is_active = True
         user.save()
         response = self.client.post(self.login_url, self.valid_login_data, format='json')
+        print(response.data)
         headers = response.data['data']
         self.client.post(self.label_url, self.valid_label_data, HTTP_AUTHORIZATION=headers, format='json')
         client.post(self.note_post_url, self.valid_note_data, HTTP_AUTHORIZATION=headers, format='json')

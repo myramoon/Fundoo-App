@@ -8,7 +8,3 @@ class TestLabels:
         assert label_obj.pk == 1
         assert label_obj.name == 'Label1'
 
-    # def test_label_is_soft_deleted(self):
-    #     label_obj = mixer.blend('labels.Label',is_trashed = False)
-    #     label_obj.soft_delete()
-    #     assert label_obj.is_trashed == True
