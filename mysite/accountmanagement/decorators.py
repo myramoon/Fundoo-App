@@ -1,13 +1,20 @@
-import json,jwt
+import json,jwt,os
 from django.http import HttpResponse
 from rest_framework import status
-from .models import Account
 from notes import utils
-from rest_framework_jwt.settings import api_settings
 from services.cache import Cache
 from services.encrypt import Encrypt
 import logging
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+formatter = logging.Formatter('%(asctime)s  %(name)s  %(levelname)s: %(message)s')
+
+file_handler = logging.FileHandler(os.path.abspath('loggers/log_accounts.log'),mode='w')
+file_handler.setFormatter(formatter)
+
+logger.addHandler(file_handler)
 
 def user_login_required(view_func):
     """[gets token and fetches user id verifying active status.
@@ -20,21 +27,23 @@ def user_login_required(view_func):
         try:
             token = request.META['HTTP_AUTHORIZATION']
             decoded_token = Encrypt.decode(token)
-            if Cache.get_cache("TOKEN_"+str(decoded_token['id'])+"_AUTH") is not None:
-                request.user = Account.objects.get(id=decoded_token['id'])
-                return view_func(request, *args, **kwargs)
-            result = utils.manage_response(status=False,message='User must be logged in')
-            return HttpResponse(json.dumps(result), status=status.HTTP_400_BAD_REQUEST)
+            if Cache.getInstance().get("TOKEN_"+str(decoded_token['id'])+"_AUTH") is not None:
+                kwargs['userid'] = decoded_token['id']
+                return view_func(request, *args , **kwargs)
+                
+            
+            else:  
+                result = utils.manage_response(status=False,message='User must be logged in',log='User id not found',logger_obj=logger)
+                return HttpResponse(result,status.HTTP_403_FORBIDDEN)
+
         except jwt.ExpiredSignatureError as e:
-            result = utils.manage_response(status=False,message='Activation has expired.',error=e)
-            #logging.exception('{} exception = {}, status_code = {}'.format(result, str(e), status.HTTP_400_BAD_REQUEST))
+            result = utils.manage_response(status=False,message='Activation has expired.',log=str(e),logger_obj=logger)
             return HttpResponse(json.dumps(result), status.HTTP_400_BAD_REQUEST)
         except jwt.exceptions.DecodeError as e:
-            result = utils.manage_response(status=False,message='please provide a valid token',error=e)
-            #logging.exception('{}, exception = {}, status_code = {}'.format(result, str(e), status.HTTP_400_BAD_REQUEST))
+            result = utils.manage_response(status=False,message='please provide a valid token',log=str(e),logger_obj=logger)
             return HttpResponse(json.dumps(result), status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            result = utils.manage_response(status=False,message='Something went wrong.Please try again.',error=e)
+            result = utils.manage_response(status=False,message=str(e),log=str(e),logger_obj=logger)
             return HttpResponse(json.dumps(result),status.HTTP_400_BAD_REQUEST)
 
     return wrapper

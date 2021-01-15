@@ -11,14 +11,18 @@ https://docs.djangoproject.com/en/3.1/ref/settings/
 """
 import os
 from pathlib import Path
-from datetime import timedelta
+
+from celery.schedules import crontab
 from decouple import config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
+SECONDS_IN_DAY = 24 * 60 * 60
+MINUTE_CONVERSION_CONSTANT = 60
+MINUTES_IN_HOUR = 60
 LOGIN_URL = 'accountmanagement.views.login'
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/3.1/howto/deployment/checklist/
 
@@ -29,6 +33,16 @@ SECRET_KEY = config('SECRET_KEY')
 DEBUG = config('DEBUG', cast=bool , default=True)
 
 ALLOWED_HOSTS = []
+CELERY_BROKER_URL = config('CELERY_BROKER_URL')
+CELERY_ACCEPT_CONTENT = ['application/json']
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_BEAT_SCHEDULE = {
+'check-reminder-every-hour': {
+         'task': 'accountmanagement.tasks.check_reminder',
+         'schedule': crontab(minute='*/1'),
+        }
+}
 
 
 # Application definition
@@ -50,13 +64,10 @@ INSTALLED_APPS = [
 
 
 REST_FRAMEWORK = {
-    #'EXCEPTION_HANDLER': 'mysite.notes.utils.custom_exception_handler',
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 10,
     'NON_FIELD_ERRORS_KEY': 'error',
-    #'DEFAULT_PERMISSION_CLASSES' : ('rest_framework.permissions.IsAuthenticated',),
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        #'rest_framework_jwt.authentication.JSONWebTokenAuthentication',
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     )
 }
@@ -90,12 +101,12 @@ TEMPLATES = [
     },
 ]
 
-CACHES = {
-   'default': {
-      'BACKEND': 'django.core.cache.backends.memcached.MemcachedCache',
-      'LOCATION': '127.0.0.1:11211',
-   }
-}
+# CACHES = {
+#    'default': {
+#       'BACKEND': 'django.core.cache.backends.memcached.MemcachedCache',
+#       'LOCATION': '127.0.0.1:11211',
+#    }
+# }
 
 
 AUTH_USER_MODEL = 'accountmanagement.Account'

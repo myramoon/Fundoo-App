@@ -5,41 +5,41 @@ Created on: Dec 12, 2020
 """
 
 import os,jwt,logging
-from django.shortcuts import render
+from django.utils.decorators import method_decorator
+from decouple import config
+from .decorators import user_login_required
+from .tasks import send_email
 from django.contrib.sites.shortcuts import get_current_site
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.http import HttpResponsePermanentRedirect
 from django.urls import reverse
-from django.utils.encoding import smart_str, force_str, smart_bytes, DjangoUnicodeDecodeError
+from django.utils.encoding import smart_str, smart_bytes, DjangoUnicodeDecodeError
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.conf import settings
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework.viewsets import ModelViewSet
-from rest_framework import generics, status, views, permissions
+from rest_framework import generics, status, views
 from rest_framework.response import Response
-from drf_yasg.utils import swagger_auto_schema
-from drf_yasg import openapi
 from .models import Account
 from notes import utils
 from .serializers import RegisterSerializer, SetNewPasswordSerializer, ResetPasswordEmailRequestSerializer, EmailVerificationSerializer, LoginSerializer,UserDetailsSerializer
-from .utils import Util 
 from services.cache import Cache
-from decouple import config
 from rest_framework.exceptions import AuthenticationFailed
 from services.encrypt import Encrypt
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-formatter = logging.Formatter('%(levelname)s | %(message)s')
+formatter = logging.Formatter('%(asctime)s  %(name)s  %(levelname)s: %(message)s')
 
-file_handler = logging.FileHandler('log_accountmanagement.log')
+file_handler = logging.FileHandler(os.path.abspath("loggers/log_notes.log"),mode='w')
 file_handler.setFormatter(formatter)
 
 logger.addHandler(file_handler)
 
+
 class CustomRedirect(HttpResponsePermanentRedirect):
     allowed_schemes = [os.environ.get('APP_SCHEME'), 'http', 'https']
+
 
 class Login(generics.GenericAPIView):
     """[allows user login after verification and activation]
@@ -51,27 +51,52 @@ class Login(generics.GenericAPIView):
     
     def post(self, request):
         """[validates user email and password, sets user id in cache]
-        Returns:
-            [dictionary]: [token]
+
+        :param request:[mandatory]:[string]:email of user
+                                   [string]:password
+        :return: [dictionary]:status[boolean]
+                              response message[string]
+                              token[string]
+                 [int]:status code
         """
         try:
             serializer = self.serializer_class(data=request.data)
             serializer.is_valid(raise_exception=True)
             user = Account.objects.get(email=serializer.data['email'])
             token = Encrypt.encode(user.id)
-            token = jwt.encode({"id": user.id}, "secret", algorithm="HS256").decode('utf-8')
-            Cache.set_cache("TOKEN_"+str(user.id)+"_AUTH", token)
-            result = utils.manage_response(status=True ,message = 'Token generated',data = token ,log = serializer.data)
-            return Response(result, status=status.HTTP_200_OK)
+
+            Cache(config('REDIS_HOST'),config('REDIS_PORT')) #create cache object
+            Cache.getInstance().set("TOKEN_"+str(user.id)+"_AUTH", token)
+
+            result = utils.manage_response(status=True ,message = 'Token generated',data = token ,log = 'successfully logged in' , logger_obj = logger)
+            return Response(result, status=status.HTTP_200_OK,content_type="application/json")
         except Account.DoesNotExist as e:
-            result = utils.manage_response(status=False,message = 'Account does not exist',error=str(e))
-            return Response(result, status.HTTP_400_BAD_REQUEST)
+            result = utils.manage_response(status=False,message = 'Account does not exist',log=str(e), logger_obj=logger)
+            return Response(result, status.HTTP_400_BAD_REQUEST,content_type="application/json")
         except AuthenticationFailed as e:
-            result = utils.manage_response(status=False,message = 'Please enter a valid token' ,error=str(e))
-            return Response(result, status.HTTP_400_BAD_REQUEST)
+            result = utils.manage_response(status=False,message = 'Please enter a valid token' ,log=str(e),logger_obj=logger)
+            return Response(result, status.HTTP_400_BAD_REQUEST,content_type="application/json")
         except Exception as e:
-            result = utils.manage_response(status=False,message = 'some other issue.Please try again' ,error=str(e))
-            return Response(result, status.HTTP_400_BAD_REQUEST)
+            result = utils.manage_response(status=False,message = 'some other issue.Please try again' ,log=str(e),logger_obj=logger)
+            return Response(result, status.HTTP_400_BAD_REQUEST,content_type="application/json")
+
+@method_decorator(user_login_required, name='dispatch')
+class Logout(generics.GenericAPIView):
+
+    def get(self, request,**kwargs):
+        """[empties current user's token and notes,labels from cache]
+
+        :param request:
+        :return:log out confirmation and status code
+        """
+        try:
+            Cache.getInstance().flushall()
+            result = utils.manage_response(status=True ,message = 'Logged out',log = 'successfully logged out' , logger_obj = logger)
+            return Response(result,status=status.HTTP_200_OK,content_type="application/json")
+        except Exception as e:
+            result = utils.manage_response(status=False, message='some other issue.Please try again', log=str(e),
+                                           logger_obj=logger)
+            return Response(result, status.HTTP_400_BAD_REQUEST,content_type="application/json")
 
 
 class Registration(generics.GenericAPIView):
@@ -82,8 +107,15 @@ class Registration(generics.GenericAPIView):
     def post(self, request):
         """[if registration details are proper then creates new user and sends verification email]
 
-        Returns:
-            [Response]: [user data after registration]
+           :param request:[mandatory]:[string]:email of user
+                                      [string]:password
+                                      [string]:first name of user
+                                      [string]:last name of user
+                                      [string]:user name of user
+           :return: [dictionary]:status[boolean]
+                                 response message[string]
+                                 posted data[dictionary]
+                          [int]:status code
         """
         try:
             serializer = self.serializer_class(data=request.data)
@@ -99,26 +131,27 @@ class Registration(generics.GenericAPIView):
                     'to_email': user.email,
                     'email_subject': 'Verify your email'}
 
-            Util.send_email(data)
-            result = utils.manage_response(status=True ,message = 'Registration successful',data = user_data ,log = serializer.data)
-            return Response(result, status=status.HTTP_201_CREATED)
+            send_email.delay(data)
+            result = utils.manage_response(status=True ,message = 'Registration successful',data = user_data ,log = 'Created new user',logger_obj=logger)
+            return Response(result, status=status.HTTP_201_CREATED,content_type="application/json")
         except Exception as e:
-            result = utils.manage_response(status=False,message = 'some other issue.Please try again' ,error=str(e))
-            return Response(result, status.HTTP_400_BAD_REQUEST)
+            result = utils.manage_response(status=False,message = 'Some other issue.Please try again' ,log=str(e),logger_obj=logger)
+            return Response(result, status.HTTP_400_BAD_REQUEST,content_type="application/json")
 
 
 
 class VerifyEmail(views.APIView):
-    """[sends verification email for activation of new user]
+    """[activates user account setting is_active flag true]
     """
     serializer_class = EmailVerificationSerializer
 
     def get(self, request):
-        """[sends verification email for activation of new user]
+        """[activates user account setting is_active flag true]
 
-        Returns:
-            [Response]: [activation status message]
+        :param request: [string]: generated token
+        :return: confirmation message and status code
         """
+
         token = request.GET.get('token')
         try:
             payload = jwt.decode(token, settings.SECRET_KEY)
@@ -127,17 +160,20 @@ class VerifyEmail(views.APIView):
                 user.is_verified = True
                 user.is_active = True
                 user.save()
-            result = utils.manage_response(status=True ,data = 'User activation successful' ,log = 'Activation successful')
-            return Response(result, status=status.HTTP_200_OK)
-        except jwt.ExpiredSignatureError as identifier:
-            logger.exception('Exception due to expired signature')
-            return Response({'error': 'Activation Expired'}, status=status.HTTP_400_BAD_REQUEST)
-        except jwt.exceptions.DecodeError as identifier:
-            logger.exception('Exception due to error in decoding')
-            return Response({'error': 'Invalid token'}, status=status.HTTP_400_BAD_REQUEST)
-        except:
-            logger.exception('Exception due to other reasons')
-            return Response({'error': 'Something went wrong'})
+            result = utils.manage_response(status=True ,message='User activated' ,log = 'Activation successful',logger_obj=logger)
+            return Response(result, status=status.HTTP_200_OK, content_type="application/json")
+        except jwt.ExpiredSignatureError as e:
+            result = utils.manage_response(status=False, message='Activation Expired', log=str(e),
+                                           logger_obj=logger)
+            return Response(result, status=status.HTTP_400_BAD_REQUEST, content_type="application/json")
+        except jwt.exceptions.DecodeError as e:
+            result = utils.manage_response(status=False, message='Invalid token', log=str(e),
+                                           logger_obj=logger)
+            return Response(result, status=status.HTTP_400_BAD_REQUEST, content_type="application/json")
+        except Exception as e:
+            result = utils.manage_response(status=False, message='Something went wrong.Please try again.', log=str(e),
+                                           logger_obj=logger)
+            return Response(result, status=status.HTTP_400_BAD_REQUEST, content_type="application/json")
 
 
 
@@ -151,9 +187,12 @@ class RequestPasswordResetEmail(generics.GenericAPIView):
     def post(self, request):
         """[sends an email to facilitate password reset]
 
-        Returns:
-            [Response]: [message confirming link sent to email]
+        :param request: [mandatory]:[string]:email of user
+        :return: [string] confirmation message
+                 email with link to reset password
+                 [int] status code
         """
+
         email = request.data.get('email', '')
 
         if Account.objects.filter(email=email).exists():
@@ -172,27 +211,28 @@ class RequestPasswordResetEmail(generics.GenericAPIView):
             data = {'email_body': email_body, 
                     'to_email': user.email,
                     'email_subject': 'Reset your passsword'}
-            Util.send_email(data)
-            result = utils.manage_response(status=True ,data = 'We have sent you a link to reset your password' ,log = 'password link sent successfully')
-        return Response(result, status=status.HTTP_200_OK)
+            send_email.delay(data)
+            result = utils.manage_response(status=True ,message = 'We have sent you a link to reset your password' ,data=data,log = 'password link sent successfully',logger_obj=logger)
+        return Response(result, status=status.HTTP_200_OK, content_type="application/json")
 
 
 class SetNewPassword(generics.GenericAPIView):
     """[returns new password when supplied with uid,token and new password]
-
     """
     serializer_class = SetNewPasswordSerializer
 
     def patch(self, request):
         """[returns new password when supplied with uid,token and new password]
 
-        Returns:
-            [Response]: [success message after new password is set]
+        :param request: [mandatory]:[string]: new password
+        :return: confirmation message and status code
         """
+
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
-        logger.debug('password reset successful')
-        return Response({'success': True, 'message': 'Password reset success'}, status=status.HTTP_200_OK)
+        result = utils.manage_response(status=True, message='Password reset successful',
+                                       log='password reset successfully', logger_obj=logger)
+        return Response(result, status=status.HTTP_200_OK, content_type="application/json")
 
 
 class CheckPasswordToken(generics.GenericAPIView):
@@ -202,6 +242,7 @@ class CheckPasswordToken(generics.GenericAPIView):
     serializer_class = SetNewPasswordSerializer
 
     def get(self, request, uidb64, token):
+
         """[checks token supplied for setting new password]
 
         Returns:
@@ -221,24 +262,30 @@ class CheckPasswordToken(generics.GenericAPIView):
                     return CustomRedirect(os.environ.get('FRONTEND_URL', '') + '?token_valid=False')
 
             if redirect_url and len(redirect_url) > 3:
-                logger.debug('Token validated')
                 return CustomRedirect(
                     redirect_url + '?token_valid=True&message=Credentials Valid&uidb64=' + uidb64 + '&token=' + token)
             else:
                 return CustomRedirect(os.environ.get('FRONTEND_URL', '') + '?token_valid=False')
 
-        except DjangoUnicodeDecodeError as identifier:
+        except DjangoUnicodeDecodeError:
             try:
                 if not PasswordResetTokenGenerator().check_token(user):
                     logger.exception('Exception due to invalid token')
                     return CustomRedirect(redirect_url + '?token_valid=False')
 
             except UnboundLocalError as e:
-                logger.exception('Exception due to variable being referenced before assignment')
-                return Response({'error': 'Token is not valid, please request a new one'},
-                                status=status.HTTP_400_BAD_REQUEST)
-            except:
-                logger.exception('Exception due to other reasons')
-                return Response({'error': 'Something went wrong'})
+                result= utils.manage_response(status=False, message='Token is not valid, please request a new one',
+                                       log=str(e), logger_obj=logger)
+                return Response(result,
+                                status=status.HTTP_400_BAD_REQUEST,content_type="application/json")
+            except Exception as e:
+                result = utils.manage_response(status=False, message='Something went wrong.Please try again.',
+                                               log=str(e), logger_obj=logger)
+                return Response(result,status=status.HTTP_400_BAD_REQUEST,content_type="application/json")
+
+
+
+
+
 
 
