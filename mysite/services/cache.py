@@ -16,7 +16,7 @@ class Cache:
         """
 
         if Cache.__shared_instance == None:
-            Cache(config('REDIS_HOST'),config('REDIS_PORT'))
+            Cache.__shared_instance = Cache(config('REDIS_HOST'),config('REDIS_PORT'))
         return Cache.__shared_instance
 
     def __init__(self,host,port):
@@ -26,13 +26,33 @@ class Cache:
         :param port: port number to be set for redis
         """
 
-        Cache.__shared_instance = redis.StrictRedis(host=host,port=port)
+        self.cache = redis.StrictRedis(host=host,port=port)
 
+    def set(self,key,value):
+        """[sets new key value pair in cache]
 
+        :param key: [mandatory]:[string]:the key to be used for token/note record
+        :param value: [mandatory]:[string]:the value to be used for token/note record
+        :return: -
+        """
+        self.cache.set(key,value)
+        self.cache.expire(key,time=60*60*5)
 
+    def get(self,key):
+        """[gets value for existing key in cache]
 
+        :param key: [mandatory]:[string]:the key to be used for existing token/note record
+        :return: value stored against key
+        """
+        return  self.cache.get(key)
 
+    def delete(self,key):
+        """[deletes cache record for existing key in cache]
 
+        :param key: [mandatory]:[string]:the key to be used for existing token/note record
+        :return: -
+        """
+        self.cache.delete(key)
 
 
 

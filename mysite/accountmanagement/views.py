@@ -3,13 +3,12 @@ Overview: contains logic for apis implementing user account management
 Author: Anam Fazal
 Created on: Dec 12, 2020 
 """
-
+import datetime
 import os,jwt,logging
 from django.utils.decorators import method_decorator
 from decouple import config
 from .decorators import user_login_required
 from .tasks import send_email
-from django.contrib.sites.shortcuts import get_current_site
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.http import HttpResponsePermanentRedirect
 from django.urls import reverse
@@ -36,6 +35,7 @@ file_handler.setFormatter(formatter)
 
 logger.addHandler(file_handler)
 
+cache=Cache.getInstance()
 
 class CustomRedirect(HttpResponsePermanentRedirect):
     allowed_schemes = [os.environ.get('APP_SCHEME'), 'http', 'https']
@@ -63,19 +63,20 @@ class Login(generics.GenericAPIView):
             serializer = self.serializer_class(data=request.data)
             serializer.is_valid(raise_exception=True)
             user = Account.objects.get(email=serializer.data['email'])
-            token = Encrypt.encode(user.id)
+            current_time = datetime.datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
+            token = Encrypt.encode(user.id,current_time)
+            cache.set("TOKEN_"+str(user.id)+"_AUTH", token)
 
-            Cache(config('REDIS_HOST'),config('REDIS_PORT')) #create cache object
-            Cache.getInstance().set("TOKEN_"+str(user.id)+"_AUTH", token)
-
-            result = utils.manage_response(status=True ,message = 'Token generated',data = token ,log = 'successfully logged in' , logger_obj = logger)
+            result = utils.manage_response(status=True ,message = 'Token generated',header = token ,log = 'successfully logged in' , logger_obj = logger)
             return Response(result, status=status.HTTP_200_OK,content_type="application/json")
         except Account.DoesNotExist as e:
             result = utils.manage_response(status=False,message = 'Account does not exist',log=str(e), logger_obj=logger)
             return Response(result, status.HTTP_400_BAD_REQUEST,content_type="application/json")
         except AuthenticationFailed as e:
-            result = utils.manage_response(status=False,message = 'Please enter a valid token' ,log=str(e),logger_obj=logger)
-            return Response(result, status.HTTP_400_BAD_REQUEST,content_type="application/json")
+            result = utils.manage_response(status=False, message='Invalid credentials', log=str(e),
+                                           logger_obj=logger)
+
+            return Response(result, status.HTTP_400_BAD_REQUEST, content_type="application/json")
         except Exception as e:
             result = utils.manage_response(status=False,message = 'some other issue.Please try again' ,log=str(e),logger_obj=logger)
             return Response(result, status.HTTP_400_BAD_REQUEST,content_type="application/json")
@@ -84,13 +85,16 @@ class Login(generics.GenericAPIView):
 class Logout(generics.GenericAPIView):
 
     def get(self, request,**kwargs):
-        """[empties current user's token and notes,labels from cache]
+        """[deletes current user's token from cache]
 
-        :param request:
+        :param kwargs: [mandatory]:[string]authentication token containing user id
         :return:log out confirmation and status code
         """
         try:
-            Cache.getInstance().flushall()
+            current_user = kwargs['userid']
+            if cache.get("TOKEN_" + str(current_user) + "_AUTH"):
+                cache.delete("TOKEN_" + str(current_user) + "_AUTH")
+
             result = utils.manage_response(status=True ,message = 'Logged out',log = 'successfully logged out' , logger_obj = logger)
             return Response(result,status=status.HTTP_200_OK,content_type="application/json")
         except Exception as e:
@@ -178,7 +182,7 @@ class VerifyEmail(views.APIView):
 
 
 
-
+@method_decorator(user_login_required, name='dispatch')
 class RequestPasswordResetEmail(generics.GenericAPIView):
     """[sends an email to facilitate password reset]
     """
@@ -192,30 +196,33 @@ class RequestPasswordResetEmail(generics.GenericAPIView):
                  email with link to reset password
                  [int] status code
         """
+        try:
+            email = request.data.get('email', '')
 
-        email = request.data.get('email', '')
+            if Account.objects.filter(email=email).exists():
+                user = Account.objects.get(email=email)
+                uidb64 = urlsafe_base64_encode(smart_bytes(user.id))
+                token = PasswordResetTokenGenerator().make_token(user)
+                redirect_url = request.build_absolute_uri(reverse('password-reset-complete'))
+                email_body = 'Hello, \n Your token number is : ' + token + ' \n your uidb64 code is ' + uidb64 + ' \n Use link below to reset your password  \n' + "?redirect_url=" + redirect_url
+                data = {'email_body': email_body, 'to_email': user.email,
+                        'email_subject': 'Reset your passsword'}
+                send_email.delay(data)
+                result = utils.manage_response(status=True ,message = 'We have sent you a link to reset your password' ,data=data,log = 'password link sent successfully',logger_obj=logger)
+                return Response(result, status=status.HTTP_200_OK, content_type="application/json")
 
-        if Account.objects.filter(email=email).exists():
-            user = Account.objects.get(email=email)
-            uidb64 = urlsafe_base64_encode(smart_bytes(user.id))
-            token = PasswordResetTokenGenerator().make_token(user)
-            current_site = get_current_site(
-                request=request).domain
-            relativeLink = reverse(
-                'password-reset-confirm', kwargs={'uidb64': uidb64, 'token': token})
-
-            redirect_url = request.data.get('redirect_url', '')
-            absurl = 'http://' + current_site + relativeLink
-            email_body = 'Hello, \n Use link below to reset your password  \n' + \
-                         absurl + "?redirect_url=" + redirect_url
-            data = {'email_body': email_body, 
-                    'to_email': user.email,
-                    'email_subject': 'Reset your passsword'}
-            send_email.delay(data)
-            result = utils.manage_response(status=True ,message = 'We have sent you a link to reset your password' ,data=data,log = 'password link sent successfully',logger_obj=logger)
-        return Response(result, status=status.HTTP_200_OK, content_type="application/json")
+            else:
+                result = utils.manage_response(status=True, message="Email id you have entered doesn't exist",
+                                                log='improper email entered', logger_obj=logger)
+                return Response(result, status=status.HTTP_400_BAD_REQUEST, content_type="application/json")
 
 
+        except Exception as e:
+            result = utils.manage_response(status=False, message='Something went wrong.Please try again.', log=str(e),
+                                           logger_obj=logger)
+            return Response(result, status=status.HTTP_400_BAD_REQUEST, content_type="application/json")
+
+@method_decorator(user_login_required, name='dispatch')
 class SetNewPassword(generics.GenericAPIView):
     """[returns new password when supplied with uid,token and new password]
     """

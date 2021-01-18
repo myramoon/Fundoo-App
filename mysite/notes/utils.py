@@ -94,6 +94,8 @@ def manage_response(**kwargs):
     if kwargs['status'] == True:
         if 'data' in kwargs:
             result['data'] = kwargs['data']
+        if 'header' in kwargs:
+            result['header'] = kwargs['header']
         kwargs['logger_obj'].debug('validated data: {}'.format(kwargs['log']))
     else:
         kwargs['logger_obj'].error('error: {}'.format(kwargs['log']))

@@ -56,7 +56,6 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'accountmanagement',
-    'drf_yasg',
     'notes',
     'labels',
     'colorfield',

@@ -20,7 +20,6 @@ from notes import utils
 from exceptions.exceptions import CustomError,ExceptionType
 
 
-# custom exceptions,test case ,put ,delete-delete existing from cache
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 

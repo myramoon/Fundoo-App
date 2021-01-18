@@ -63,6 +63,15 @@ class Data(TestCase):
         }
 
         self.valid_note_put_data = {
+            "title": "my put testing note",
+            "description": "this is my put test note",
+            "is_archived": True,
+            "is_pinned": True,
+            "labels": ["First Note"],
+            "collaborators": ["anamfazal94@gmail.com"]
+        }
+
+        self.valid_note_patch_data = {
             "title": "qwerty note",
             "description": "qwerty description"
         }
@@ -120,6 +129,9 @@ class NotesTest(Data):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         response = client.put(self.note_url, self.valid_note_put_data, HTTP_AUTHORIZATION=headers, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        response = client.patch(self.note_url, self.valid_note_patch_data, HTTP_AUTHORIZATION=headers, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         response = client.delete(self.note_url, HTTP_AUTHORIZATION=headers, format='json')

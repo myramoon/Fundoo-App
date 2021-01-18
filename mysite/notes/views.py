@@ -168,7 +168,7 @@ class ManageNotes(APIView):
     def put(self, request, pk,**kwargs):
         """[updates existing note with new details]
 
-        :param request: one or more note fields with new values
+        :param request: all note fields with or without new values
         :param pk: [mandatory]:[integer]id of the note to be deleted
         :param kwargs: [mandatory]:[string]authentication token containing user id
         :return: updated notes details and status code
@@ -179,20 +179,22 @@ class ManageNotes(APIView):
             if not Note.objects.filter(id=pk).exists():
                 raise CustomError(ExceptionType.NonExistentError, "Requested note does not exist")
             data = request.data
-            if data.get('collaborators'):
-                utils.get_collaborator_list(request)
-            if data.get('labels'):
-                utils.get_label_list(request)
+            if not data.get('collaborators'):
+                raise CustomError(ExceptionType.MissingFieldError, "Please enter collaborators")
+            utils.get_collaborator_list(request)
+            if not data.get('labels'):
+                raise CustomError(ExceptionType.MissingFieldError, "Please enter collaborators")
+            utils.get_label_list(request)
 
             current_user=kwargs['userid']
             note = Note.objects.get(Q(id=pk),Q(is_trashed=False),
                             Q(user=current_user))
 
-            serializer = NoteSerializer(note, data=request.data , partial=True)
-    
+            serializer = NoteSerializer(note, data=request.data)
             if serializer.is_valid(raise_exception=True):
                 serializer.save()
-                cache.delete("USER_"+str(current_user)+"_NOTE_" + str(note.id) + "_DETAIL")
+                if cache.get("USER_"+str(current_user)+"_NOTE_" + str(note.id) + "_DETAIL"):
+                    cache.delete("USER_"+str(current_user)+"_NOTE_" + str(note.id) + "_DETAIL")
                 cache.set("USER_"+str(current_user)+"_NOTE_" + str(note.id) + "_DETAIL", str(serializer.data))
             else:
                 raise CustomError(ExceptionType.ValidationError,"Please enter valid details")
@@ -210,8 +212,49 @@ class ManageNotes(APIView):
             result=utils.manage_response(status=False,message='Something went wrong.Please try again.',log=str(e),logger_obj=logger)
             return Response(result,status.HTTP_400_BAD_REQUEST,content_type="application/json")
 
+    def patch(self, request, pk, **kwargs):
+        """[updates existing note with new details]
 
+        :param request: one or more note fields with new values
+        :param pk: [mandatory]:[integer]id of the note to be deleted
+        :param kwargs: [mandatory]:[string]authentication token containing user id
+        :return: updated notes details and status code
+        """
 
+        try:
+
+            if not Note.objects.filter(id=pk).exists():
+                raise CustomError(ExceptionType.NonExistentError, "Requested note does not exist")
+            data = request.data
+            if data.get('collaborators'):
+                utils.get_collaborator_list(request)
+            if data.get('labels'):
+                utils.get_label_list(request)
+
+            current_user = kwargs['userid']
+            note = Note.objects.get(Q(id=pk), Q(is_trashed=False),Q(user=current_user))
+            serializer = NoteSerializer(note, data=request.data, partial=True)
+            if serializer.is_valid(raise_exception=True):
+                serializer.save()
+                if cache.get("USER_" + str(current_user) + "_NOTE_" + str(note.id) + "_DETAIL"):
+                    cache.delete("USER_" + str(current_user) + "_NOTE_" + str(note.id) + "_DETAIL")
+                cache.set("USER_" + str(current_user) + "_NOTE_" + str(note.id) + "_DETAIL", str(serializer.data))
+            else:
+                raise CustomError(ExceptionType.ValidationError, "Please enter valid details")
+            result = utils.manage_response(status=True, message='updated successfully', data=serializer.data,
+                                           log='updated note', logger_obj=logger)
+            return Response(result, status.HTTP_200_OK, content_type="application/json")
+
+        except CustomError as e:
+            result = utils.manage_response(status=False, message=e.message,
+                                           log=str(e), logger_obj=logger)
+            return Response(result, status.HTTP_400_BAD_REQUEST, content_type="application/json")
+
+        except Exception as e:
+
+            result = utils.manage_response(status=False, message='Something went wrong.Please try again.', log=str(e),
+                                           logger_obj=logger)
+            return Response(result, status.HTTP_400_BAD_REQUEST, content_type="application/json")
 
 
 @method_decorator(user_login_required,name='dispatch')

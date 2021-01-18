@@ -188,37 +188,3 @@ class LoginTest(Data):
                                     format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
-    def test_request_password_reset_email(self):
-        """
-        Ensure we can reset password for email and it returns status code as 201.
-        """
-        self.client.post(self.register_url, self.valid_registration_data, format='json')
-        user = User.objects.filter(email=self.valid_registration_data['email']).first()
-        user.is_verified = True
-        user.save()
-
-        self.logged_in = self.client.post(self.login_url, self.valid_login_data, format='json')
-        data = {"email": "anamfazal94@gmail.com"}
-        response = self.client.post(self.reset_password_url, data, format='json')
-        token = response.data['data']['email_body'].split(" ")[7]
-        uidb64 = response.data['data']['email_body'].split(" ")[13]
-
-        valid_data = json.dumps({"password": "qwerty12", "token": token, "uidb64": uidb64})
-
-        response = self.client.patch(reverse("password-reset-complete"), valid_data, content_type='application/json')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-        invalid_data = json.dumps({"password": "adminpass", "token": token, "uidb64": uidb64 + 's'})
-
-        response = self.client.patch(reverse("password-reset-complete"), invalid_data, content_type='application/json')
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-
-        data = {"email": "anam@gmail.com"}
-        response = self.client.post(self.reset_password_url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-
-
-
-
-
-

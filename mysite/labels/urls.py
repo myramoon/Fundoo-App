@@ -2,8 +2,8 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-    path('manage-label/', views.ManageLabel.as_view(),name = 'manage-labels'),
-    path('manage-label/<int:pk>/', views.ManageLabel.as_view(),name='manage-specific-label'),
+    path('labels/', views.ManageLabel.as_view(),name = 'manage-labels'),
+    path('label/<int:pk>/', views.ManageLabel.as_view(),name='manage-specific-label'),
     
 ] 
 

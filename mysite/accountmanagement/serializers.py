@@ -82,9 +82,13 @@ class LoginSerializer(ModelSerializer):
 
     class Meta:
         model = Account
-        fields = ['email', 'password', 'user_name']
+        fields = ['email', 'password','user_name']
 
     def validate(self, attrs):
+        """
+        it verifies the credentials, if credentials were matched then returns data in json format, else throws exception
+        :return: return json data if credentials are matched
+        """
         email = attrs.get('email', '')
         password = attrs.get('password', '')
         user = auth.authenticate(email=email, password=password)
@@ -105,7 +109,6 @@ class ResetPasswordEmailRequestSerializer(serializers.Serializer):
         serializers ([type]): [description]
     """
     email = serializers.EmailField(min_length=2)
-    redirect_url = serializers.CharField(max_length=500, required=False)
 
     class Meta:
         fields = ['email']
