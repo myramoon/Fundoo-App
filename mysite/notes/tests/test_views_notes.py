@@ -118,7 +118,7 @@ class NotesTest(Data):
         user.is_active = True
         user.save()
         response = client.post(self.login_url, self.valid_login_data, format='json')
-        headers = response.data['header']
+        headers = response.__getitem__(header="HTTP_AUTHORIZATION")
 
         response = self.client.post(self.label_url, self.valid_label_data, HTTP_AUTHORIZATION=headers, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -149,7 +149,7 @@ class NotesTest(Data):
         user.is_active = True
         user.save()
         response = client.post(self.login_url, self.valid_login_data, format='json')
-        headers = response.data['header']
+        headers = response.__getitem__(header="HTTP_AUTHORIZATION")
 
         response = self.client.post(self.note_post_url, self.invalid_note_data, HTTP_AUTHORIZATION=headers,
                                     format='json')
@@ -180,7 +180,7 @@ class ArchivedViewTest(Data):
         user.is_active = True
         user.save()
         response = self.client.post(self.login_url, self.valid_login_data, format='json')
-        headers = response.data['header']
+        headers = response.__getitem__(header="HTTP_AUTHORIZATION")
         self.client.post(self.label_url, self.valid_label_data, HTTP_AUTHORIZATION=headers, format='json')
         client.post(self.note_post_url, self.valid_note_data, HTTP_AUTHORIZATION=headers, format='json')
         client.post(self.note_post_url, self.valid_note_data2, HTTP_AUTHORIZATION=headers, format='json')
@@ -211,7 +211,7 @@ class PinnedViewTest(Data):
         user.is_active = True
         user.save()
         response = self.client.post(self.login_url, self.valid_login_data, format='json')
-        headers = response.data['header']
+        headers = response.__getitem__(header="HTTP_AUTHORIZATION")
         self.client.post(self.label_url, self.valid_label_data, HTTP_AUTHORIZATION=headers, format='json')
 
         client.post(self.note_post_url, self.valid_note_data, HTTP_AUTHORIZATION=headers, format='json')
@@ -244,7 +244,7 @@ class SearchViewTest(Data):
         user.is_active = True
         user.save()
         response = self.client.post(self.login_url, self.valid_login_data, format='json')
-        headers = response.data['header']
+        headers = response.__getitem__(header="HTTP_AUTHORIZATION")
 
         self.client.post(self.label_url, self.valid_label_data, HTTP_AUTHORIZATION=headers, format='json')
         client.post(self.note_post_url, self.valid_note_data, HTTP_AUTHORIZATION=headers, format='json')
@@ -270,8 +270,7 @@ class TrashViewTest(Data):
         user.is_active = True
         user.save()
         response = self.client.post(self.login_url, self.valid_login_data, format='json')
-        print(response.data)
-        headers = response.data['header']
+        headers = response.__getitem__(header="HTTP_AUTHORIZATION")
         self.client.post(self.label_url, self.valid_label_data, HTTP_AUTHORIZATION=headers, format='json')
         client.post(self.note_post_url, self.valid_note_data, HTTP_AUTHORIZATION=headers, format='json')
 

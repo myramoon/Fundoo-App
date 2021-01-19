@@ -10,7 +10,7 @@ from decouple import config
 from .decorators import user_login_required
 from .tasks import send_email
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
-from django.http import HttpResponsePermanentRedirect
+from django.http import HttpResponsePermanentRedirect, HttpResponse
 from django.urls import reverse
 from django.utils.encoding import smart_str, smart_bytes, DjangoUnicodeDecodeError
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
@@ -30,7 +30,7 @@ logger.setLevel(logging.DEBUG)
 
 formatter = logging.Formatter('%(asctime)s  %(name)s  %(levelname)s: %(message)s')
 
-file_handler = logging.FileHandler(os.path.abspath("loggers/log_notes.log"),mode='w')
+file_handler = logging.FileHandler("/Users/nusrat/Desktop/VSCODE/Note App/mysite/loggers/log_accounts.log")
 file_handler.setFormatter(formatter)
 
 logger.addHandler(file_handler)
@@ -66,9 +66,11 @@ class Login(generics.GenericAPIView):
             current_time = datetime.datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
             token = Encrypt.encode(user.id,current_time)
             cache.set("TOKEN_"+str(user.id)+"_AUTH", token)
+            result = utils.manage_response(status=True, message='Token generated', log='successfully logged in', logger_obj=logger)
+            response = Response(result, status=status.HTTP_200_OK,content_type="application/json")
+            response.__setitem__(header="HTTP_AUTHORIZATION",value=token)
+            return response
 
-            result = utils.manage_response(status=True ,message = 'Token generated',header = token ,log = 'successfully logged in' , logger_obj = logger)
-            return Response(result, status=status.HTTP_200_OK,content_type="application/json")
         except Account.DoesNotExist as e:
             result = utils.manage_response(status=False,message = 'Account does not exist',log=str(e), logger_obj=logger)
             return Response(result, status.HTTP_400_BAD_REQUEST,content_type="application/json")

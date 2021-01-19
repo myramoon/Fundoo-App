@@ -62,8 +62,7 @@ class LabelTest(Data):
         user.is_active = True
         user.save()
         response = self.client.post(self.login_url, self.valid_login_data, format='json')
-        headers = response.data['header']
-
+        headers = response.__getitem__(header="HTTP_AUTHORIZATION")
         response = self.client.post(self.label_post_url, self.valid_label_data, HTTP_AUTHORIZATION=headers,
                                     format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -81,7 +80,7 @@ class LabelTest(Data):
         user.is_active = True
         user.save()
         response = self.client.post(self.login_url, self.valid_login_data, format='json')
-        headers = response.data['header']
+        headers = response.__getitem__(header="HTTP_AUTHORIZATION")
         response = self.client.post(self.label_post_url, self.invalid_label_data, HTTP_AUTHORIZATION=headers,
                                     format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

@@ -25,7 +25,7 @@ logger.setLevel(logging.DEBUG)
 
 formatter = logging.Formatter('%(asctime)s  %(name)s  %(levelname)s: %(message)s')
 
-file_handler = logging.FileHandler(os.path.abspath("loggers/log_notes.log"),mode='w')
+file_handler = logging.FileHandler("/Users/nusrat/Desktop/VSCODE/Note App/mysite/loggers/log_notes.log",mode='w')
 file_handler.setFormatter(formatter)
 
 logger.addHandler(file_handler)
@@ -183,7 +183,7 @@ class ManageNotes(APIView):
                 raise CustomError(ExceptionType.MissingFieldError, "Please enter collaborators")
             utils.get_collaborator_list(request)
             if not data.get('labels'):
-                raise CustomError(ExceptionType.MissingFieldError, "Please enter collaborators")
+                raise CustomError(ExceptionType.MissingFieldError, "Please enter labels")
             utils.get_label_list(request)
 
             current_user=kwargs['userid']
